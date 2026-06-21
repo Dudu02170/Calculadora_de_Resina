@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de Resina — Colmeia Resinas</title>
+<link rel="stylesheet" href="calc.css">
+<style>
+  body { margin: 0; background: #eef1f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="calc-container">
+
+  <div class="calc-header">
+    <h1>Calculadora de Resina</h1>
+    <p>Calcule a quantidade exata para o seu projeto</p>
+  </div>
+
+  <input type="radio" name="calc-mode" id="calc-mode-uso" class="calc-vradio" checked>
+  <input type="radio" name="calc-mode" id="calc-mode-comp" class="calc-vradio">
+
+  <div class="calc-tabs">
+    <label for="calc-mode-uso" class="calc-tab">Uso de Resina</label>
+    <label for="calc-mode-comp" class="calc-tab">Componentes A : B</label>
+  </div>
+
+  <!-- ============ MODO 1: USO ============ -->
+  <div class="calc-panel calc-panel-uso">
+    <div class="calc-section">
+      <div class="calc-section-title">Tipo de Molde</div>
+      <div class="calc-section-subtitle">Selecione o formato e informe as medidas</div>
+
+      <input type="radio" name="calc-shape" id="calc-shape-rc" class="calc-vradio" checked>
+      <input type="radio" name="calc-shape" id="calc-shape-cc" class="calc-vradio">
+      <input type="radio" name="calc-shape" id="calc-shape-rcoat" class="calc-vradio">
+      <input type="radio" name="calc-shape" id="calc-shape-ccoat" class="calc-vradio">
+      <input type="radio" name="calc-shape" id="calc-shape-sph" class="calc-vradio">
+      <input type="radio" name="calc-shape" id="calc-shape-hsph" class="calc-vradio">
+
+      <div class="shape-grid">
+        <label for="calc-shape-rc" class="shape-card">
+          <span class="shape-ico"><svg viewBox="0 0 64 52"><path d="M12 24 L32 14 L52 24 L32 34 Z" fill="#d8eef8"/><path d="M12 24 L32 34 L32 48 L12 38 Z" fill="#7ec8e3"/><path d="M32 34 L52 24 L52 38 L32 48 Z" fill="#9ed4e8"/></svg></span>
+          <span>Moldagem<br>Retangular</span>
+        </label>
+        <label for="calc-shape-cc" class="shape-card">
+          <span class="shape-ico"><svg viewBox="0 0 64 52"><ellipse cx="32" cy="40" rx="18" ry="5.5" fill="#7ec8e3"/><rect x="14" y="18" width="36" height="22" fill="#b8dff0"/><ellipse cx="32" cy="18" rx="18" ry="5.5" fill="#d8eef8"/></svg></span>
+          <span>Moldagem<br>Circular</span>
+        </label>
+        <label for="calc-shape-rcoat" class="shape-card">
+          <span class="shape-ico"><svg viewBox="0 0 64 52"><path d="M10 30 L32 22 L54 30 L32 38 Z" fill="#d8eef8"/><path d="M10 30 L32 38 L32 44 L10 36 Z" fill="#7ec8e3"/><path d="M32 38 L54 30 L54 36 L32 44 Z" fill="#9ed4e8"/></svg></span>
+          <span>Revestimento<br>Retangular</span>
+        </label>
+        <label for="calc-shape-ccoat" class="shape-card">
+          <span class="shape-ico"><svg viewBox="0 0 64 52"><ellipse cx="32" cy="34" rx="22" ry="7" fill="#7ec8e3"/><ellipse cx="32" cy="30" rx="22" ry="7" fill="#d8eef8"/></svg></span>
+          <span>Revestimento<br>Circular</span>
+        </label>
+        <label for="calc-shape-sph" class="shape-card">
+          <span class="shape-ico"><svg viewBox="0 0 64 52"><circle cx="32" cy="28" r="18" fill="#b8dff0"/><ellipse cx="26" cy="21" rx="6" ry="4" fill="#fff" opacity="0.5"/></svg></span>
+          <span>Esfera</span>
+        </label>
+        <label for="calc-shape-hsph" class="shape-card">
+          <span class="shape-ico"><svg viewBox="0 0 64 52"><path d="M10 32 A22 16 0 0 1 54 32 Z" fill="#b8dff0"/><ellipse cx="32" cy="32" rx="22" ry="6" fill="#d8eef8"/><ellipse cx="24" cy="25" rx="5" ry="3" fill="#fff" opacity="0.4"/></svg></span>
+          <span>Meia Esfera</span>
+        </label>
+      </div>
+
+      <div class="shape-fields">
+        <div class="sfield" id="fields-rc">
+          <div class="shape-diagram">
+            <svg viewBox="0 0 220 150"><path d="M30 85L110 50L190 85L190 105L110 140L30 105Z" fill="#b8dff0"/><path d="M30 85L110 50L110 140L30 105Z" fill="#7ec8e3"/><path d="M110 50L190 85L190 105L110 140Z" fill="#9ed4e8"/><path d="M30 85L110 50L190 85L110 110Z" fill="#d8eef8"/><text x="110" y="42" text-anchor="middle" fill="#06193d" font-size="14" font-weight="800">C</text><text x="204" y="98" fill="#06193d" font-size="14" font-weight="800">L</text><text x="14" y="98" fill="#06193d" font-size="14" font-weight="800">P</text></svg>
+            <div class="legend">C = Comprimento &nbsp;·&nbsp; L = Largura &nbsp;·&nbsp; P = Profundidade</div>
+          </div>
+          <div class="calc-input-row">
+            <div class="calc-input-wrap"><label>Comprimento (cm)</label><input type="number" class="uso-in" id="rc-l" min="0" step="0.1" placeholder="0"></div>
+            <div class="calc-input-wrap"><label>Largura (cm)</label><input type="number" class="uso-in" id="rc-w" min="0" step="0.1" placeholder="0"></div>
+            <div class="calc-input-wrap"><label>Profundidade (cm)</label><input type="number" class="uso-in" id="rc-h" min="0" step="0.1" placeholder="0"></div>
+          </div>
+        </div>
+        <div class="sfield" id="fields-cc">
+          <div class="shape-diagram">
+            <svg viewBox="0 0 220 150"><ellipse cx="110" cy="115" rx="70" ry="18" fill="#7ec8e3"/><rect x="40" y="55" width="140" height="60" fill="#b8dff0"/><ellipse cx="110" cy="55" rx="70" ry="18" fill="#d8eef8"/><line x1="40" y1="55" x2="180" y2="55" stroke="#06193d" stroke-width="1" opacity="0.3"/><text x="110" y="46" text-anchor="middle" fill="#06193d" font-size="14" font-weight="800">Ø</text><text x="188" y="92" fill="#06193d" font-size="14" font-weight="800">P</text></svg>
+            <div class="legend">Ø = Diâmetro &nbsp;·&nbsp; P = Profundidade</div>
+          </div>
+          <div class="calc-input-row">
+            <div class="calc-input-wrap"><label>Diâmetro (cm)</label><input type="number" class="uso-in" id="cc-d" min="0" step="0.1" placeholder="0"></div>
+            <div class="calc-input-wrap"><label>Profundidade (cm)</label><input type="number" class="uso-in" id="cc-h" min="0" step="0.1" placeholder="0"></div>
+          </div>
+        </div>
+        <div class="sfield" id="fields-rcoat">
+          <div class="shape-diagram">
+            <svg viewBox="0 0 220 130"><path d="M20 74L110 44L200 74L200 86L110 116L20 86Z" fill="#b8dff0"/><path d="M20 74L110 44L110 116L20 86Z" fill="#7ec8e3"/><path d="M110 44L200 74L200 86L110 116Z" fill="#9ed4e8"/><path d="M20 74L110 44L200 74L110 104Z" fill="#d8eef8"/><text x="110" y="36" text-anchor="middle" fill="#06193d" font-size="14" font-weight="800">C</text><text x="206" y="76" fill="#06193d" font-size="14" font-weight="800">L</text><text x="6" y="80" fill="#06193d" font-size="14" font-weight="800">E</text></svg>
+            <div class="legend">C = Comprimento &nbsp;·&nbsp; L = Largura &nbsp;·&nbsp; E = Espessura</div>
+          </div>
+          <div class="calc-input-row">
+            <div class="calc-input-wrap"><label>Comprimento (cm)</label><input type="number" class="uso-in" id="rcoat-l" min="0" step="0.1" placeholder="0"></div>
+            <div class="calc-input-wrap"><label>Largura (cm)</label><input type="number" class="uso-in" id="rcoat-w" min="0" step="0.1" placeholder="0"></div>
+            <div class="calc-input-wrap"><label>Espessura (mm)</label><input type="number" class="uso-in" id="rcoat-t" min="0" step="0.1" placeholder="0"></div>
+          </div>
+        </div>
+        <div class="sfield" id="fields-ccoat">
+          <div class="shape-diagram">
+            <svg viewBox="0 0 220 120"><ellipse cx="110" cy="78" rx="80" ry="20" fill="#7ec8e3"/><ellipse cx="110" cy="68" rx="80" ry="20" fill="#b8dff0"/><ellipse cx="110" cy="58" rx="80" ry="20" fill="#d8eef8"/><text x="110" y="44" text-anchor="middle" fill="#06193d" font-size="14" font-weight="800">Ø</text><text x="196" y="74" fill="#06193d" font-size="14" font-weight="800">E</text></svg>
+            <div class="legend">Ø = Diâmetro &nbsp;·&nbsp; E = Espessura</div>
+          </div>
+          <div class="calc-input-row">
+            <div class="calc-input-wrap"><label>Diâmetro (cm)</label><input type="number" class="uso-in" id="ccoat-d" min="0" step="0.1" placeholder="0"></div>
+            <div class="calc-input-wrap"><label>Espessura (mm)</label><input type="number" class="uso-in" id="ccoat-t" min="0" step="0.1" placeholder="0"></div>
+          </div>
+        </div>
+        <div class="sfield" id="fields-sph">
+          <div class="shape-diagram">
+            <svg viewBox="0 0 220 140"><circle cx="110" cy="62" r="52" fill="#b8dff0"/><ellipse cx="92" cy="46" rx="17" ry="11" fill="#fff" opacity="0.4"/><line x1="58" y1="62" x2="162" y2="62" stroke="#06193d" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.5"/><text x="110" y="130" text-anchor="middle" fill="#06193d" font-size="14" font-weight="800">Ø</text></svg>
+            <div class="legend">Ø = Diâmetro da esfera</div>
+          </div>
+          <div class="calc-input-row">
+            <div class="calc-input-wrap"><label>Diâmetro (cm)</label><input type="number" class="uso-in" id="sph-d" min="0" step="0.1" placeholder="0"></div>
+          </div>
+        </div>
+        <div class="sfield" id="fields-hsph">
+          <div class="shape-diagram">
+            <svg viewBox="0 0 220 120"><path d="M26 70A84 84 0 0 1 194 70Z" fill="#b8dff0"/><ellipse cx="110" cy="70" rx="84" ry="20" fill="#d8eef8"/><ellipse cx="80" cy="46" rx="14" ry="8" fill="#fff" opacity="0.35"/><text x="110" y="106" text-anchor="middle" fill="#06193d" font-size="14" font-weight="800">Ø</text></svg>
+            <div class="legend">Ø = Diâmetro da base</div>
+          </div>
+          <div class="calc-input-row">
+            <div class="calc-input-wrap"><label>Diâmetro (cm)</label><input type="number" class="uso-in" id="hsph-d" min="0" step="0.1" placeholder="0"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="density-row">
+        <label>Densidade da resina</label>
+        <input type="number" class="uso-in" id="uso-density" value="1.1" step="0.01" min="0.5" max="2.5">
+        <span class="unt">g/ml</span>
+      </div>
+      <div class="info-box">Epóxi: 1,1 g/ml &nbsp;|&nbsp; Poliuretano: 1,0–1,2 g/ml &nbsp;|&nbsp; Poliéster: 1,2 g/ml</div>
+    </div>
+
+    <div class="calc-results">
+      <div class="calc-results-title">Resultado</div>
+      <div class="calc-result-item">
+        <span class="calc-result-label">Quantidade necessária</span>
+        <span class="calc-result-value" id="uso-result-value">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODO 2: COMPONENTES ============ -->
+  <div class="calc-panel calc-panel-comp">
+    <div class="calc-section">
+      <div class="calc-section-title">Proporção de Mistura A : B</div>
+      <div class="calc-section-subtitle">Verifique na embalagem da sua resina</div>
+      <div class="ratio-row">
+        <div class="ratio-wrap"><input type="number" class="comp-in" id="comp-ra" value="2" min="0.1" step="0.1"><div class="lbl">Componente A</div></div>
+        <div class="ratio-sep">:</div>
+        <div class="ratio-wrap"><input type="number" class="comp-in" id="comp-rb" value="1" min="0.1" step="0.1"><div class="lbl">Componente B</div></div>
+      </div>
+      <div style="font-size:11px;color:#9eaab7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:6px">Proporções comuns:</div>
+      <div class="presets">
+        <button type="button" class="preset-btn" data-ra="3" data-rb="1">3 : 1</button>
+        <button type="button" class="preset-btn" data-ra="100" data-rb="50">100 : 50</button>
+        <button type="button" class="preset-btn" data-ra="100" data-rb="45">100 : 45</button>
+        <button type="button" class="preset-btn" data-ra="100" data-rb="44">100 : 44</button>
+        <button type="button" class="preset-btn" data-ra="100" data-rb="42">100 : 42</button>
+      </div>
+    </div>
+
+    <div class="calc-section">
+      <div class="calc-section-title">Quantidade Total de Resina</div>
+      <div class="calc-input-row">
+        <div class="calc-input-wrap"><label>Quantidade total</label><input type="number" class="comp-in" id="comp-total" placeholder="Ex: 500" min="0" step="1"></div>
+        <div class="calc-input-wrap" style="max-width:110px"><label>Unidade</label>
+          <select class="comp-in" id="comp-unit"><option value="g">g</option><option value="ml">ml</option><option value="kg">kg</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="calc-results">
+      <div class="calc-results-title">Resultado</div>
+      <div id="comp-result"><div class="calc-comp-empty">Preencha a proporção e a quantidade.</div></div>
+    </div>
+  </div>
+
+  <div class="calc-foot">Calculadora de Resina • Colmeia Resinas</div>
+
+</div>
+
+<script src="calc.js"></script>
+</body>
+</html>
