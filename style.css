@@ -2913,19 +2913,37 @@ header .contact.gift {
 }
 
 .header .header-calculator-link {
-    color: var(--color_header_highlight);
-    display: flex;
+    color: var(--color_header_highlight) !important;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    align-self: center;
     flex-shrink: 0;
     transition: .2s ease-out;
-    margin-top: -2px;
+    margin-top: 0;
     margin-right: 10px;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.header .header-calculator-link .icon {
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
 }
 
 .header .header-calculator-link svg {
     width: 24px;
     height: 24px;
+    display: block;
+    stroke: currentColor;
+}
+
+.header .header-calculator-link:hover {
+    color: var(--color_header_highlight) !important;
+    opacity: .85;
 }
 
 .menu-mobile .nav-mobile-wrapper,.nav {
@@ -11303,7 +11321,9 @@ body:has(.modal-theme.product-ruler-modal.show) {
     }
 
     .header .bg.header-mobile.search-closed .header-mobile__side-right .header-calculator-link {
-        margin-right: 7px
+        margin-right: 7px;
+        position: relative;
+        top: -1px;
     }
 
     .header .bg.header-mobile.search-closed .header-mobile__side-left {
