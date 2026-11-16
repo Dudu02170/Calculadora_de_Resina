@@ -22,6 +22,10 @@ export function scenario(name, body) {
     if (process.env.CHROME_BINARY) options.setChromeBinaryPath(process.env.CHROME_BINARY);
     options.setPageLoadStrategy('eager');
     let builder = new Builder().forBrowser('chrome').setChromeOptions(options);
+    await mkdir('reports', { recursive:true });
+    const service = new chrome.ServiceBuilder(process.env.CHROMEDRIVER_PATH || undefined)
+      .loggingTo('reports/chromedriver.log').enableVerboseLogging();
+    builder = builder.setChromeService(service);
     const driver = await builder.build();
     try {
       await driver.manage().setTimeouts({ implicit: 0, pageLoad: 20000, script: 10000 });
