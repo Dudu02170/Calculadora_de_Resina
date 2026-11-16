@@ -17,6 +17,7 @@ export function scenario(name, body) {
       '--disable-background-networking',
       '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1'
     );
+    if (process.env.CI) options.addArguments('--no-sandbox');
     if (process.env.HEADLESS !== 'false') options.addArguments('--headless=new');
     if (process.env.CHROME_BINARY) options.setChromeBinaryPath(process.env.CHROME_BINARY);
     options.setPageLoadStrategy('eager');
