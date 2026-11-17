@@ -68,3 +68,46 @@ scenario('proporcao zero exige preenchimento valido', async p => {
   await inputs(p,{'comp-total':300,'comp-ra':0});
   await p.waitText('#comp-result','Preencha a proporção');
 });
+
+const otherPresets = [
+  // Independent, exact batch weights from the label ratios.
+  [100, 50, 300, '200,0 g (66.7%)', '100,0 g (33.3%)'],
+  [100, 45, 145, '100,0 g (69.0%)', '45,0 g (31.0%)'],
+  [100, 44, 144, '100,0 g (69.4%)', '44,0 g (30.6%)'],
+  [100, 42, 142, '100,0 g (70.4%)', '42,0 g (29.6%)']
+];
+for (const [a, b, total, expectedA, expectedB] of otherPresets) {
+  scenario('preset ' + a + ':' + b + ' atualiza campos, massas e percentuais', async p => {
+    await p.open('/calc.html');
+    await p.click('label[for="calc-mode-comp"]');
+    await inputs(p, {'comp-total': total, 'comp-ra': 7, 'comp-rb': 3});
+    await p.click('.preset-btn[data-ra="' + a + '"][data-rb="' + b + '"]');
+    assert.equal(await (await p.element('#comp-ra')).getAttribute('value'), String(a));
+    assert.equal(await (await p.element('#comp-rb')).getAttribute('value'), String(b));
+    const amounts = await p.driver.findElements(By.css('#comp-result .calc-amt'));
+    assert.equal(amounts.length, 2);
+    assert.equal(await amounts[0].getText(), expectedA);
+    assert.equal(await amounts[1].getText(), expectedB);
+    await p.waitText('#comp-result', total.toFixed(1).replace('.', ','));
+  });
+}
+for (const field of ['comp-total', 'comp-rb']) {
+  scenario(field + ' invalido remove resultados anteriores e permite recalcular', async p => {
+    await p.open('/calc.html');
+    await p.click('label[for="calc-mode-comp"]');
+    await p.fill('#comp-total', 300);
+    await p.waitText('#comp-result', '200,0 g');
+    for (const invalid of [0, -1, '']) {
+      await p.fill('#' + field, invalid);
+      await p.waitText('#comp-result', 'Preencha a proporção e a quantidade.');
+      assert.equal((await p.driver.findElements(By.css('#comp-result .calc-amt'))).length, 0,
+        field + '=' + JSON.stringify(invalid) + ' deve remover massas obsoletas');
+      await p.fill('#' + field, field === 'comp-total' ? 300 : 1);
+      await p.waitText('#comp-result', '200,0 g');
+      const amounts = await p.driver.findElements(By.css('#comp-result .calc-amt'));
+      assert.equal(amounts.length, 2);
+      assert.equal(await amounts[0].getText(), '200,0 g (66.7%)');
+      assert.equal(await amounts[1].getText(), '100,0 g (33.3%)');
+    }
+  });
+}
