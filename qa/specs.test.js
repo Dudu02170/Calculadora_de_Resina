@@ -111,3 +111,42 @@ for (const field of ['comp-total', 'comp-rb']) {
     }
   });
 }
+
+scenario('trocar formatos limpa resultado incompleto e preserva medidas ao voltar',async p=>{
+ await p.open('/calc.html');
+ let previous=null;
+ for(const [shape,values,expected] of shapes){
+  await p.click('label[for="calc-shape-'+shape+'"]');
+  assert.equal(await (await p.element('#fields-'+shape)).isDisplayed(),true);
+  if(previous){
+   assert.equal(await (await p.driver.findElement(By.css('#fields-'+previous))).isDisplayed(),false,
+    'campos do formato anterior devem ficar ocultos');
+  }
+  assert.equal(await result(p),'—','formato sem medidas não deve mostrar a massa anterior');
+  await inputs(p,values);await p.waitText('#uso-result-value',expected);
+  previous=shape;
+ }
+ await p.click('label[for="calc-shape-rc"]');
+ await p.waitText('#uso-result-value','0,110');
+ for(const [id,value] of Object.entries(shapes[0][1])){
+  assert.equal(await (await p.element('#'+id)).getAttribute('value'),String(value));
+ }
+});
+scenario('alternar modos preserva medidas e proporcao sem cruzar resultados',async p=>{
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});
+ await p.waitText('#uso-result-value','0,110');
+ await p.click('label[for="calc-mode-comp"]');await p.fill('#comp-total',300);
+ await p.click('.preset-btn[data-ra="3"][data-rb="1"]');
+ const componentAmounts=async()=>Promise.all((await p.driver.findElements(By.css('#comp-result .calc-amt'))).map(e=>e.getText()));
+ assert.deepEqual(await componentAmounts(),['225,0 g (75.0%)','75,0 g (25.0%)']);
+ await p.click('label[for="calc-mode-uso"]');await p.waitText('#uso-result-value','0,110');
+ await p.fill('#rc-h',2);await p.waitText('#uso-result-value','0,220');
+ await p.click('label[for="calc-mode-comp"]');
+ assert.equal(await (await p.element('#comp-total')).getAttribute('value'),'300');
+ assert.equal(await (await p.element('#comp-ra')).getAttribute('value'),'3');
+ assert.equal(await (await p.element('#comp-rb')).getAttribute('value'),'1');
+ assert.deepEqual(await componentAmounts(),['225,0 g (75.0%)','75,0 g (25.0%)'],
+  'alterar medidas do molde não deve mudar a divisão dos componentes');
+ await p.click('label[for="calc-mode-uso"]');await p.waitText('#uso-result-value','0,220');
+ assert.equal(await (await p.element('#rc-h')).getAttribute('value'),'2');
+});
