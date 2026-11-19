@@ -164,11 +164,11 @@ for(const [name,mold,moldValues,coat,coatValues,densities] of equivalentDepths){
   for(const [density,expected] of densities){
    await p.click('label[for="calc-shape-'+mold+'"]');
    await inputs(p,{...moldValues,'uso-density':density});
-   assert.match(await p.text('#fields-'+mold),/\(cm\)/,'moldagem deve identificar medidas em cm');
+   assert.match(await p.text('#fields-'+mold),/\(cm\)/i,'moldagem deve identificar medidas em cm');
    await p.waitText('#uso-result-value',expected);
    const molded=await result(p);assert.match(molded,/kg/);
    await p.click('label[for="calc-shape-'+coat+'"]');await inputs(p,coatValues);
-   assert.match(await p.text('#fields-'+coat),/\(mm\)/,'revestimento deve identificar espessura em mm');
+   assert.match(await p.text('#fields-'+coat),/\(mm\)/i,'revestimento deve identificar espessura em mm');
    await p.waitText('#uso-result-value',expected);
    assert.equal(await result(p),molded,'conversão cm/mm divergente com densidade '+density);
   }
