@@ -1,0 +1,40 @@
+name: QA Selenium
+on:
+  pull_request:
+  push:
+    branches: [main, qa/test-automation]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: qa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: browser-actions/setup-chrome@v2
+        id: chrome
+        with:
+          chrome-version: stable
+          install-chromedriver: true
+      - name: Install test dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Selenium regression
+        run: npm test
+        env:
+          CHROMEDRIVER_PATH: ${{ steps.chrome.outputs.chromedriver-path }}
+          CHROME_BINARY: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-evidence
+          path: qa/reports/
+          if-no-files-found: ignore
+          retention-days: 7
