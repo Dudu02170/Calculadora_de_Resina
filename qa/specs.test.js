@@ -150,3 +150,27 @@ scenario('alternar modos preserva medidas e proporcao sem cruzar resultados',asy
  await p.click('label[for="calc-mode-uso"]');await p.waitText('#uso-result-value','0,220');
  assert.equal(await (await p.element('#rc-h')).getAttribute('value'),'2');
 });
+
+const equivalentDepths=[
+ // Rectangle: 100 cm³. Circle: 50*pi cm³. Expected masses rounded to 0.001 kg.
+ ['retangular','rc',{'rc-l':20,'rc-w':10,'rc-h':0.5},'rcoat',{'rcoat-l':20,'rcoat-w':10,'rcoat-t':5},
+  [[1,'0,100'],[1.1,'0,110'],[1.2,'0,120']]],
+ ['circular','cc',{'cc-d':20,'cc-h':0.5},'ccoat',{'ccoat-d':20,'ccoat-t':5},
+  [[1,'0,157'],[1.1,'0,173'],[1.2,'0,188']]]
+];
+for(const [name,mold,moldValues,coat,coatValues,densities] of equivalentDepths){
+ scenario('0,5 cm e 5 mm produzem a mesma massa no formato '+name,async p=>{
+  await p.open('/calc.html');
+  for(const [density,expected] of densities){
+   await p.click('label[for="calc-shape-'+mold+'"]');
+   await inputs(p,{...moldValues,'uso-density':density});
+   assert.match(await p.text('#fields-'+mold),/\(cm\)/,'moldagem deve identificar medidas em cm');
+   await p.waitText('#uso-result-value',expected);
+   const molded=await result(p);assert.match(molded,/kg/);
+   await p.click('label[for="calc-shape-'+coat+'"]');await inputs(p,coatValues);
+   assert.match(await p.text('#fields-'+coat),/\(mm\)/,'revestimento deve identificar espessura em mm');
+   await p.waitText('#uso-result-value',expected);
+   assert.equal(await result(p),molded,'conversão cm/mm divergente com densidade '+density);
+  }
+ });
+}
