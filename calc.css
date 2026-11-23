@@ -98,3 +98,10 @@
 .calc-bar-b { background: rgba(243,194,0,.45); }
 .calc-comp-empty { color: rgba(255,255,255,.45); font-size: 13px; text-align: center; padding: 6px 0; }
 .calc-foot { text-align: center; font-size: 11px; color: #9eaab7; margin-top: 22px; }
+
+.calc-history { margin-top: 20px; }
+.calc-history p { font-size: 13px; line-height: 1.5; }
+.calc-history ul { padding: 0; list-style: none; }
+.calc-history li { padding: 12px 0; border-top: 1px solid #e4e8ef; overflow-wrap: anywhere; }
+.sim-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#sim-feedback { min-height: 1.5em; }

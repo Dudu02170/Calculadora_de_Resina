@@ -1,4 +1,4 @@
-import { scenario, assert, By } from './support.js';
+import { scenario, assert, By, until } from './support.js';
 const inputs = async (p, values) => { for (const [id,value] of Object.entries(values)) await p.fill('#'+id,value); };
 const result = p => p.text('#uso-result-value');
 const shapes = [
@@ -174,3 +174,75 @@ for(const [name,mold,moldValues,coat,coatValues,densities] of equivalentDepths){
   }
  });
 }
+
+const storageKey='colmeia.resina.simulations.v1';
+const savedItems=p=>p.driver.executeScript('return JSON.parse(localStorage.getItem(arguments[0])||"null")',storageKey);
+for(const [shape,values,expected] of shapes){
+ scenario('salva e restaura simulacao do formato '+shape,async p=>{
+  await p.open('/calc.html');await p.click('label[for="calc-shape-'+shape+'"]');await inputs(p,values);
+  if(shape==='rc')await p.fill('#uso-density',1.2);
+  const name=shape==='rc'?'<span id="qa-sim-name">Projeto & QA</span>':'Projeto '+shape+' QA';
+  await p.fill('#sim-name',name);await p.click('#save-sim');await p.waitText('#sim-feedback','Simulação salva');
+  assert.equal(await p.text('#sim-list strong'),name);
+  assert.equal(await p.driver.executeScript('return document.getElementById("qa-sim-name")'),null);
+  const stored=await savedItems(p);assert.equal(stored.version,1);assert.equal(stored.items.length,1);
+  assert.equal(stored.items[0].snapshot.shape,'calc-shape-'+shape);
+  await p.driver.navigate().refresh();await p.click('[data-sim-restore]');
+  assert.equal(await (await p.element('#sim-name')).getAttribute('value'),name);
+  for(const [id,value] of Object.entries(values))assert.equal(await (await p.element('#'+id)).getAttribute('value'),String(value));
+  await p.waitText('#uso-result-value',shape==='rc'?'0,120':expected);
+  assert.equal(await (await p.element('#uso-density')).getAttribute('value'),shape==='rc'?'1.2':'1.1');
+  assert.equal(await p.driver.executeScript('return document.getElementById(arguments[0]).checked','calc-shape-'+shape),true);
+ });
+}
+for(const unit of ['g','ml','kg']){
+ scenario('restaura componentes na unidade '+unit+' sem alterar molde',async p=>{
+  await p.open('/calc.html');await inputs(p,{'rc-l':12,'rc-w':10,'rc-h':1});
+  await p.click('label[for="calc-mode-comp"]');await p.click('.preset-btn[data-ra="3"]');
+  await p.fill('#comp-total',unit==='kg'?4:400);await p.select('#comp-unit',unit);
+  await p.fill('#sim-name','Mistura QA');await p.click('#save-sim');
+  await p.fill('#comp-total',999);await p.select('#comp-unit',unit==='g'?'kg':'g');await p.click('.preset-btn[data-ra="100"][data-rb="45"]');
+  await p.click('label[for="calc-mode-uso"]');await p.click('[data-sim-restore]');
+  assert.equal(await p.driver.executeScript('return document.getElementById("calc-mode-comp").checked'),true);
+  assert.equal(await (await p.element('#comp-ra')).getAttribute('value'),'3');assert.equal(await (await p.element('#comp-rb')).getAttribute('value'),'1');
+  assert.equal(await (await p.element('#comp-unit')).getAttribute('value'),unit);
+  const amounts=await p.driver.findElements(By.css('#comp-result .calc-amt'));
+  assert.match(await amounts[0].getText(),unit==='kg'?/^3,000 kg/:new RegExp('^300,0 '+unit));
+  assert.match(await amounts[1].getText(),unit==='kg'?/^1,000 kg/:new RegExp('^100,0 '+unit));
+  await p.click('label[for="calc-mode-uso"]');assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'12');
+ });
+}
+scenario('recusa salvar resultado invalido ou obsoleto e recupera apos correcao',async p=>{
+ await p.open('/calc.html');await p.click('#save-sim');await p.waitText('#sim-feedback','Preencha valores válidos');assert.equal(await savedItems(p),null);
+ await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#rc-h',0);await p.click('#save-sim');assert.equal(await savedItems(p),null);
+ await p.fill('#rc-h',1);await p.click('#save-sim');assert.equal((await savedItems(p)).items.length,1);
+ await p.click('label[for="calc-mode-comp"]');await p.click('#save-sim');await p.waitText('#sim-feedback','Preencha valores válidos');
+ assert.equal((await savedItems(p)).items.length,1);assert.equal((await savedItems(p)).items[0].name,'Moldagem retangular');
+});
+scenario('remocao confirmada preserva outra simulacao e campos atuais',async p=>{
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#sim-name','Primeira QA');await p.click('#save-sim');
+ await p.fill('#rc-l',20);await p.fill('#sim-name','Segunda QA');await p.click('#save-sim');
+ const before=await savedItems(p);await p.click('[data-sim-remove]');await (await p.driver.wait(until.alertIsPresent(),10000)).dismiss();assert.deepEqual(await savedItems(p),before);
+ await p.click('[data-sim-remove]');await p.alert(/Remover a simulação/);await p.waitText('#sim-feedback','Simulação removida');
+ assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'20');assert.deepEqual((await savedItems(p)).items,[before.items[1]]);
+ await p.driver.navigate().refresh();assert.equal(await p.text('#sim-list strong'),'Primeira QA');
+});
+scenario('falha de armazenamento preserva lista e permite nova tentativa',async p=>{
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#sim-name','Original QA');await p.click('#save-sim');const before=await savedItems(p);
+ await p.fill('#rc-l',20);await p.fill('#sim-name','Nova QA');
+ await p.driver.executeScript('window.__qaSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException("Quota QA","QuotaExceededError")}');
+ await p.click('#save-sim');await p.waitText('#sim-feedback','Não foi possível salvar');assert.deepEqual(await savedItems(p),before);
+ assert.equal(await p.text('#sim-list strong'),'Original QA');assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'20');
+ await p.driver.executeScript('Storage.prototype.setItem=window.__qaSetItem');await p.click('#save-sim');assert.equal((await savedItems(p)).items.length,2);
+});
+scenario('dados corrompidos nao sao sobrescritos e calculadora continua funcionando',async p=>{
+ await p.open('/calc.html');await p.driver.executeScript('localStorage.setItem(arguments[0],"{invalido")',storageKey);await p.driver.navigate().refresh();
+ await p.waitText('#sim-feedback','Os dados armazenados não foram alterados');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.waitText('#uso-result-value','0,110');
+ await p.click('#save-sim');assert.equal(await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),'{invalido');
+});
+scenario('limite de dez simulacoes nao descarta registros anteriores',async p=>{
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});
+ for(let i=1;i<=10;i++){await p.fill('#sim-name','Projeto QA '+i);await p.click('#save-sim');}
+ const before=await savedItems(p);assert.equal(before.items.length,10);assert.equal(new Set(before.items.map(x=>x.id)).size,10);
+ await p.fill('#sim-name','Excedente QA');await p.click('#save-sim');await p.waitText('#sim-feedback','Limite de 10');assert.deepEqual(await savedItems(p),before);
+});
