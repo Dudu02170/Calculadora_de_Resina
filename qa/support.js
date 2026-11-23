@@ -4,6 +4,7 @@ import { Builder, By, until, Select } from 'selenium-webdriver';
 import chrome from 'selenium-webdriver/chrome.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { startServer } from './server.js';
+import { resolve } from 'node:path';
 
 let server;
 before(async () => { server = await startServer(); });
@@ -12,11 +13,14 @@ after(async () => { await server?.close(); });
 export { assert, By, until, Select };
 export function scenario(name, body) {
   test(name, { timeout: 90000 }, async () => {
+    const downloadDir=resolve('reports','downloads',name.replace(/[^a-zA-Z0-9-]/g,'_').slice(0,100));
+    await mkdir(downloadDir,{recursive:true});
     const options = new chrome.Options().addArguments(
       '--disable-dev-shm-usage', '--window-size=1440,1000',
       '--disable-background-networking',
       '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1'
     );
+    options.setUserPreferences({'download.default_directory':downloadDir,'download.prompt_for_download':false,'download.directory_upgrade':true});
     if (process.env.CI) options.addArguments('--no-sandbox');
     if (process.env.HEADLESS !== 'false') options.addArguments('--headless=new');
     if (process.env.CHROME_BINARY) options.setChromeBinaryPath(process.env.CHROME_BINARY);
@@ -30,7 +34,7 @@ export function scenario(name, body) {
     try {
       await driver.manage().setTimeouts({ implicit: 0, pageLoad: 20000, script: 10000 });
       const p = {
-        driver,
+        driver,downloadDir,
         async open(path = '/') { await driver.get(server.url + path); },
         async element(css) {
           const e = await driver.wait(until.elementLocated(By.css(css)), 10000, css);

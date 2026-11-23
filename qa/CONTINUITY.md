@@ -6,10 +6,10 @@
 - Restaurar o modo, formato e campos salvos; manter os campos do outro modo. Suportar os seis formatos e g/ml/kg já existentes.
 - Dados locais na chave colmeia.resina.simulations.v1, formato version:1/items. Refresh na mesma origem mantém a lista; não há backend, conta ou sincronização entre dispositivos.
 - Nome renderizado por textContent. Remoção exige confirmação e preserva outras simulações/campos.
-- Entradas inválidas e resultados não representáveis não são salvos. Falha de escrita preserva lista anterior e informa erro/retry; leitura inválida bloqueia escrita para não sobrescrever dados antigos. Não apaga registros corrompidos automaticamente.
+- Entradas inválidas e resultados não representáveis não são salvos. Falha de escrita preserva lista anterior e informa erro/retry; leitura inválida bloqueia escrita para não sobrescrever dados antigos. Não apaga registros corrompidos automaticamente; reinício opcional exige confirmação e oferece cópia local.
 
 ## Como testar
-cd qa && npm install && npm test, com Node 22 e Chrome. São 46 Selenium (43 anteriores + 3 novos de proteção de gravação entre abas). Estado/CI final no PR da funcionalidade. Asserções usam resultados numéricos de referência e o formulário real. localStorage real em Chrome isolado; injeção de erro de escrita somente no teste.
+cd qa && npm install && npm test, com Node 22 e Chrome. São 49 Selenium (46 anteriores + 3 novos de cópia/recuperação). Estado/CI final no PR da funcionalidade. Asserções usam resultados numéricos de referência e o formulário real. localStorage real em Chrome isolado; injeção de erro de escrita somente no teste.
 
 ## Dependência e limites
 Parte de qa/test-automation, PR #1 ainda aberto. Revisar/integrar a suíte antes de retargetar a funcionalidade para main. Sem merge automático ou force-push, sem duplicar a suíte. Não há AGENTS.md no checkout ou ancestrais consultados.
@@ -17,7 +17,7 @@ A persistência depende da origem/permissão/quota do navegador e pode ser apaga
 
 ## Próximos passos
 1. Comparação lado a lado entregue para o mesmo modo e, nos componentes, mesma unidade. Avaliar conversões somente com regra explícita, sem misturar massa/volume.
-2. Validar outros navegadores e política para recuperação de armazenamento inválido. Proteção entre abas atuais entregue abaixo; versões antigas/outros escritores continuam fora do protocolo. Leitura inválida preserva os dados e a calculadora continua funcionando.
+2. Validar outros navegadores e eventual importação validada de cópias. Cópia/reinício de lista inválida entregues abaixo; não há reparo/importação automática. Versões antigas/outros escritores continuam fora do protocolo de abas.
 
 ## Comparação de duas simulações
 Seleções exigem registros distintos existentes e o mesmo modo. Uso permite diferentes formatos, mostrando medidas com cm/mm, densidade e massa em kg; componentes mostram proporção, total e A/B somente na mesma unidade g/ml/kg. Nenhuma conversão automática, gravação ou alteração do formulário. Cabeçalhos e valores usam textContent; tabela tem caption/headers e rolagem horizontal em espaços estreitos.
@@ -34,3 +34,12 @@ Entregue: antes de escrever, confere o conteúdo bruto conhecido com o atual. Co
 Aceitação: três novos cenários Selenium com duas abas da mesma sessão/origem: salvamento/remoção com cópia antiga e retry preservando registros; fila sob Web Lock real retido pelo teste, repetição bloqueada e dois escritores sem perda; ausência da API simulada com detecção de conflito sequencial. Os 43 anteriores mantêm as asserções, apenas aguardando o fim do estado ocupado na UI ao salvar/remover. localStorage e locks são reais no Chrome em loopback, sem backend ou novos serviços/dependências.
 
 Limites: protocolo entre abas desta versão; não controla escritores externos/versões antigas que ignorem o lock, perfis/dispositivos ou processos fora da origem. Não há refresh passivo: consultas em aba ociosa mantêm sua cópia até reload ou tentativa de escrita. Falha/corrupção continua sem sobrescrita. Web Locks requer suporte/contexto apropriado; outros navegadores, file:// e Tray continuam pendentes. Referência consultada: https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API. Evidência final no PR #2/Actions. Como testar: cd qa && npm install && npm test (Node 22 e Chrome).
+
+## Cópia local e recuperação explícita
+Baixar cópia local lê somente a chave da calculadora no momento do clique e solicita um arquivo simulacoes-resina.json com o conteúdo textual UTF-8, sem parse/normalização. Não afirma que o navegador concluiu o download nem importa/corrige o arquivo. Ausência de dados e falha de acesso são informadas sem alteração do armazenamento.
+
+Reiniciar lista salva aparece somente após leitura bem-sucedida de conteúdo inválido. Não aparece em lista válida ou quando o armazenamento está inacessível. A confirmação informa o apagamento dos registros e orienta baixar cópia antes; cancelar mantém dados. Usa a mesma fila de escrita/lock e confere o conteúdo inválido observado antes de substituir pela lista vazia versionada. Se mudou em outra aba, recarrega e recusa o reinício. Mantém formulário, outras chaves e libera salvamento após sucesso.
+
+Três novos cenários Selenium, total 49: download real no Chrome e conteúdo igual ao storage sem alterar formulário; cópia de texto inválido, cancelamento/reinício, preservação de campos/outra chave/cópia em arquivo e retomada de salvar; conflito com lista corrigida por outra aba sem apagamento. O suporte QA define diretório de downloads isolado por cenário e os testes aguardam o arquivo concluído no sistema de arquivos, sem simular Blob/URL/clique. Dados são fictícios; os 46 anteriores mantêm as asserções.
+
+Limites: download depende do navegador/permissões e deve ser conferido pelo usuário antes de reiniciar. Reinício descarta o conteúdo inválido somente por decisão explícita, sem repará-lo; a cópia permanece um arquivo local, sem upload/importação ou sincronização. Outros navegadores, file:// e Tray não foram validados. A proteção entre abas mantém os limites do protocolo descrito acima. Como testar: cd qa && npm install && npm test (Node 22 e Chrome), evidências e cópias fictícias em qa/reports/ no artefato do Actions do PR #2.

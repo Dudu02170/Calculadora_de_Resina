@@ -1,3 +1,5 @@
+import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { scenario, assert, By, until } from './support.js';
 const inputs = async (p, values) => { for (const [id,value] of Object.entries(values)) await p.fill('#'+id,value); };
 const result = p => p.text('#uso-result-value');
@@ -348,4 +350,47 @@ scenario('sem API de bloqueio ainda detecta copia desatualizada antes de gravar'
  await prepareProject(p,'Outro QA',20);await clickSave(p);const external=await savedItems(p);assert.equal(external.items.length,2);
  await p.driver.switchTo().window(a);await prepareProject(p,'Terceiro QA',30);await clickSave(p);await p.waitText('#sim-feedback','alterada em outra aba');assert.deepEqual(await savedItems(p),external);
  await clickSave(p);assert.equal((await savedItems(p)).items.length,3);assert.deepEqual((await savedItems(p)).items.slice(1),external.items);
+});
+
+async function downloadCopy(p,expected){
+ const before=new Set(await readdir(p.downloadDir));let file;
+ await p.click('#sim-export');await p.waitText('#sim-feedback','Download solicitado');
+ await p.driver.wait(async()=>{
+  for(const name of await readdir(p.downloadDir)){
+   if(before.has(name)||!name.endsWith('.json'))continue;
+   const path=join(p.downloadDir,name);
+   try{if(await readFile(path,'utf8')===expected){file=path;return true;}}catch{}
+  }
+  return false;
+ },10000,'cópia JSON concluída pelo navegador');
+ return file;
+}
+scenario('copia local baixa arquivo real sem alterar simulacoes ou formulario',async p=>{
+ await p.open('/calc.html');await p.click('#sim-export');await p.waitText('#sim-feedback','Não há dados armazenados');assert.deepEqual(await readdir(p.downloadDir),[]);
+ await prepareProject(p,'Projeto cópia QA',10);await clickSave(p);
+ const raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ const file=await downloadCopy(p,raw);assert.equal(await readFile(file,'utf8'),raw);
+ assert.equal(await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),raw);assert.deepEqual(await currentCalculation(p),fields);
+});
+scenario('copia dados invalidos e reinicia somente apos confirmacao preservando campos',async p=>{
+ await p.open('/calc.html');const raw='{dados inválidos QA\n';
+ await p.driver.executeScript('localStorage.setItem(arguments[0],arguments[1]);localStorage.setItem("qa-other","Preservar QA")',storageKey,raw);await p.driver.navigate().refresh();
+ await p.waitText('#sim-feedback','Os dados armazenados não foram alterados');await prepareProject(p,'Rascunho QA',10);const fields=await currentCalculation(p);
+ const file=await downloadCopy(p,raw);await p.click('#sim-reset');const dialog=await p.driver.wait(until.alertIsPresent(),10000);assert.match(await dialog.getText(),/registros armazenados serão apagados/);await dialog.dismiss();
+ assert.equal(await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),raw);assert.deepEqual(await currentCalculation(p),fields);
+ await p.click('#sim-reset');await p.alert(/Reiniciar a lista salva/);await waitSaveIdle(p);await p.waitText('#sim-feedback','Lista reiniciada');
+ assert.deepEqual(await savedItems(p),{version:1,items:[]});assert.deepEqual(await currentCalculation(p),fields);
+ assert.equal(await (await p.element('#sim-name')).getAttribute('value'),'Rascunho QA');
+ assert.equal(await p.driver.executeScript('return localStorage.getItem("qa-other")'),'Preservar QA');assert.equal(await readFile(file,'utf8'),raw);
+ assert.equal(await p.driver.executeScript('return document.getElementById("sim-reset").hidden'),true);
+ await clickSave(p);assert.equal((await savedItems(p)).items.length,1);assert.equal((await savedItems(p)).items[0].name,'Rascunho QA');
+});
+scenario('recuperacao antiga nao apaga lista corrigida em outra aba',async p=>{
+ await p.open('/calc.html');await p.driver.executeScript('localStorage.setItem(arguments[0],"{quebrado QA")',storageKey);await p.driver.navigate().refresh();
+ await p.waitText('#sim-feedback','Os dados armazenados não foram alterados');await prepareProject(p,'Aba antiga QA',10);const a=await p.driver.getWindowHandle(),fields=await currentCalculation(p);
+ await p.driver.switchTo().newWindow('tab');await p.open('/calc.html');await p.click('#sim-reset');await p.alert(/Reiniciar a lista salva/);await waitSaveIdle(p);
+ await prepareProject(p,'Recuperada QA',20);await clickSave(p);const current=await savedItems(p);assert.equal(current.items.length,1);
+ await p.driver.switchTo().window(a);await p.click('#sim-reset');await p.alert(/Reiniciar a lista salva/);await waitSaveIdle(p);await p.waitText('#sim-feedback','alterada em outra aba');
+ assert.deepEqual(await savedItems(p),current);assert.deepEqual(await currentCalculation(p),fields);
+ assert.equal(await p.driver.executeScript('return document.getElementById("sim-reset").hidden'),true);
 });

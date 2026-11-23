@@ -187,6 +187,11 @@
     <p>Guarde até 10 simulações somente neste navegador. Restaurar preenche os campos e recalcula o resultado.</p>
     <div class="calc-input-wrap"><label for="sim-name">Nome da simulação (opcional)</label><input id="sim-name" type="text" maxlength="60" placeholder="Ex: Mesa retangular"></div>
     <button type="button" class="preset-btn" id="save-sim">Salvar simulação atual</button>
+    <div class="sim-actions">
+      <button type="button" class="preset-btn" id="sim-export">Baixar cópia local</button>
+      <button type="button" class="preset-btn" id="sim-reset" hidden>Reiniciar lista salva</button>
+    </div>
+    <p>A cópia preserva os dados como estão; não corrige conteúdo inválido. Reiniciar a lista exige confirmação.</p>
     <p id="sim-storage-note"></p>
     <p id="sim-feedback" role="status" aria-live="polite"></p>
     <ul id="sim-list"></ul>

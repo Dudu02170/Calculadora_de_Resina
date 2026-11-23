@@ -30,6 +30,8 @@ Preencha um cálculo válido e use **Salvar simulação atual**. O nome é opcio
 
 Ao gravar por uma aba desatualizada, a lista mais recente é recarregada e uma nova tentativa é solicitada, preservando o formulário. Abas com suporte a bloqueio compartilham a fila de gravação; sem esse suporte, use uma única aba para salvar. Isso não protege contra alterações feitas por outros códigos que não seguem esse protocolo.
 
+**Baixar cópia local** solicita um arquivo com o conteúdo armazenado, inclusive se estiver inválido. Não corrige nem importa o arquivo. Quando a lista está inválida, **Reiniciar lista salva** permite começar vazia após confirmação; baixe a cópia antes. A ação mantém os campos atuais e as demais chaves do navegador, e recusa apagar se outra aba já tiver alterado os dados.
+
 Não há conta, servidor ou sincronização entre dispositivos. Os registros pertencem à origem da página: use o mesmo endereço/navegador para reabrir a lista. Em páginas abertas como arquivo local, acesso ao armazenamento pode variar por navegador. Limpar dados do site pode apagar a lista. Erros de armazenamento são informados sem apagar simulações antigas; o cálculo continua disponível. Não valida integração com a Tray ou checkout.
 
 ## Estrutura

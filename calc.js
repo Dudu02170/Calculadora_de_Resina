@@ -62,7 +62,7 @@
       '<div class="calc-result-item"><span class="calc-result-label">Proporção utilizada</span><span class="calc-result-value">'+s.a+'<span class="calc-unit">:</span>'+s.b+'</span></div>';
   }
 
-  var storageKey='colmeia.resina.simulations.v1',simulations=[],readable=true,knownRaw=null,saving=false;
+  var storageKey='colmeia.resina.simulations.v1',simulations=[],readable=true,knownRaw=null,saving=false,recoveryRaw;
   function feedback(text){if($('sim-feedback'))$('sim-feedback').textContent=text;}
   function measurements(s){
     return s.values.map(function(value,i){return value+' '+((s.shape==='calc-shape-rcoat'&&i===2)||(s.shape==='calc-shape-ccoat'&&i===1)?'mm':'cm');}).join(' × ');
@@ -124,38 +124,36 @@
       row.append(name,detail,actions);list.appendChild(row);
     });
   }
+  function recoveryState(){
+    if($('sim-reset'))$('sim-reset').hidden=readable||typeof recoveryRaw!=='string';
+  }
   function loadSaved(){
+    var raw,read=false;
     try{
-      var raw=localStorage.getItem(storageKey),data=raw===null?{version:1,items:[]}:JSON.parse(raw);
+      raw=localStorage.getItem(storageKey);read=true;
+      var data=raw===null?{version:1,items:[]}:JSON.parse(raw);
       if(!data||data.version!==1||!Array.isArray(data.items)||data.items.length>10)throw Error('Formato inválido');
       var ids=new Set();
       data.items.forEach(function(item){
         if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>60||!validSnapshot(item.snapshot))throw Error('Simulação inválida');
         ids.add(item.id);
       });
-      simulations=data.items;readable=true;knownRaw=raw;
-    }catch(error){simulations=[];readable=false;feedback('Não foi possível ler as simulações deste navegador. Os dados armazenados não foram alterados.');}
-    renderSaved();
+      simulations=data.items;readable=true;knownRaw=raw;recoveryRaw=undefined;
+    }catch(error){simulations=[];readable=false;recoveryRaw=read?raw:undefined;feedback('Não foi possível ler as simulações deste navegador. Os dados armazenados não foram alterados.');}
+    recoveryState();renderSaved();
   }
   function savingState(active){
     saving=active;
     if($('save-sim')){$('save-sim').disabled=active;$('save-sim').textContent=active?'Salvando...':'Salvar simulação atual';}
-    document.querySelectorAll('[data-sim-remove]').forEach(function(button){button.disabled=active;});
+    document.querySelectorAll('[data-sim-remove],#sim-export,#sim-reset').forEach(function(button){button.disabled=active;});
   }
-  function persist(next,message){
+  function storageChanged(){
+    loadSaved();
+    if(readable)feedback('A lista foi alterada em outra aba. Confira os registros atualizados e tente novamente.');
+  }
+  function storageWrite(write){
     if(saving)return;
-    if(!readable){feedback('Não foi possível acessar as simulações. Os dados armazenados não foram alterados.');return;}
     savingState(true);feedback('Salvando simulações...');
-    function write(){
-      if(localStorage.getItem(storageKey)!==knownRaw){
-        loadSaved();
-        if(readable)feedback('A lista foi alterada em outra aba. Confira os registros atualizados e tente novamente.');
-        return;
-      }
-      var raw=JSON.stringify({version:1,items:next});
-      localStorage.setItem(storageKey,raw);knownRaw=raw;
-      simulations=next;renderSaved();feedback(message);
-    }
     function failed(){feedback('Não foi possível salvar as simulações neste navegador. Tente novamente.');}
     try{
       if(navigator.locks&&typeof navigator.locks.request==='function'){
@@ -164,6 +162,40 @@
         try{write();}catch(error){failed();}finally{savingState(false);}
       }
     }catch(error){failed();savingState(false);}
+  }
+  function persist(next,message){
+    if(saving)return;
+    if(!readable){feedback('Não foi possível acessar as simulações. Os dados armazenados não foram alterados.');return;}
+    storageWrite(function(){
+      if(localStorage.getItem(storageKey)!==knownRaw){storageChanged();return;}
+      var raw=JSON.stringify({version:1,items:next});
+      localStorage.setItem(storageKey,raw);knownRaw=raw;
+      simulations=next;renderSaved();feedback(message);
+    });
+  }
+  function exportSaved(){
+    if(saving)return;
+    var url;
+    try{
+      var raw=localStorage.getItem(storageKey);
+      if(raw===null){feedback('Não há dados armazenados para baixar.');return;}
+      url=URL.createObjectURL(new Blob([raw],{type:'application/json;charset=utf-8'}));
+      var link=document.createElement('a');link.href=url;link.download='simulacoes-resina.json';link.hidden=true;
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},1000);
+      feedback('Download solicitado. Guarde a cópia antes de reiniciar uma lista inválida.');
+    }catch(error){if(url)URL.revokeObjectURL(url);feedback('Não foi possível baixar a cópia neste navegador. Os dados não foram alterados.');}
+  }
+  function resetSaved(){
+    if(saving||readable||typeof recoveryRaw!=='string')return;
+    var expected=recoveryRaw;
+    if(!confirm('Reiniciar a lista salva? Os registros armazenados serão apagados. Baixe uma cópia antes. Os campos atuais serão mantidos.'))return;
+    storageWrite(function(){
+      if(localStorage.getItem(storageKey)!==expected){storageChanged();return;}
+      var raw=JSON.stringify({version:1,items:[]});localStorage.setItem(storageKey,raw);
+      knownRaw=raw;simulations=[];readable=true;recoveryRaw=undefined;
+      recoveryState();renderSaved();feedback('Lista reiniciada. Os campos atuais foram mantidos.');
+    });
   }
   function saveCurrent(){
     if(saving)return;
@@ -199,6 +231,8 @@
       var locking=false;try{locking=!!(navigator.locks&&navigator.locks.request);}catch(error){}
       if(!locking&&$('sim-storage-note'))$('sim-storage-note').textContent='Neste navegador, use uma única aba para salvar simulações.';
     }
+    if($('sim-export'))$('sim-export').addEventListener('click',exportSaved);
+    if($('sim-reset'))$('sim-reset').addEventListener('click',resetSaved);
     if($('compare-sim')){$('compare-sim').addEventListener('click',compareSaved);['compare-first','compare-second'].forEach(function(id){$(id).addEventListener('change',function(){clearComparison('Seleção alterada. Compare novamente.');});});}
   }
 
