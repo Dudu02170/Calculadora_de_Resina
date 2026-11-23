@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { scenario, assert, By, until } from './support.js';
 const inputs = async (p, values) => { for (const [id,value] of Object.entries(values)) await p.fill('#'+id,value); };
@@ -393,4 +393,88 @@ scenario('recuperacao antiga nao apaga lista corrigida em outra aba',async p=>{
  await p.driver.switchTo().window(a);await p.click('#sim-reset');await p.alert(/Reiniciar a lista salva/);await waitSaveIdle(p);await p.waitText('#sim-feedback','alterada em outra aba');
  assert.deepEqual(await savedItems(p),current);assert.deepEqual(await currentCalculation(p),fields);
  assert.equal(await p.driver.executeScript('return document.getElementById("sim-reset").hidden'),true);
+});
+
+
+const importItem=(id='import-qa',name='Importada QA')=>({id,name,snapshot:{mode:'uso',shape:'calc-shape-rc',values:[10,10,1],density:1.1}});
+const copyPayload=items=>JSON.stringify({version:1,items});
+async function chooseCopy(p,raw){
+ const file=join(p.downloadDir,'entrada-qa.json');await writeFile(file,raw,'utf8');
+ await (await p.element('#sim-import-file')).sendKeys(file);return file;
+}
+async function importChosen(p,count=1){await p.click('#sim-import');await p.alert(new RegExp('Adicionar '+count+' simulação'));await waitSaveIdle(p);await p.waitText('#sim-feedback','Cópia importada');}
+async function assertLocalUnchanged(p,raw,fields){assert.equal(await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),raw);assert.deepEqual(await currentCalculation(p),fields);}
+scenario('importa copia realmente baixada preservando registros e sem duplicar ao repetir',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'<img id="qa-import-html">Molde QA',10);await clickSave(p);
+ await p.click('label[for="calc-mode-comp"]');await inputs(p,{'comp-ra':100,'comp-rb':50,'comp-total':300});await p.select('#comp-unit','ml');await saveNamed(p,'Mistura QA');
+ const original=await savedItems(p),raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),file=await downloadCopy(p,raw);
+ for(let i=0;i<2;i++){await p.click('[data-sim-remove]');await p.alert(/Remover a simulação/);await waitSaveIdle(p);}
+ await p.click('label[for="calc-mode-uso"]');await prepareProject(p,'Atual QA',20);await clickSave(p);const current=await savedItems(p);
+ await p.fill('#rc-l',30);const fields=await currentCalculation(p);
+ await (await p.element('#sim-import-file')).sendKeys(file);await importChosen(p,2);
+ assert.deepEqual((await savedItems(p)).items,[...original.items,...current.items]);assert.deepEqual(await currentCalculation(p),fields);assert.equal(await (await p.element('#sim-name')).getAttribute('value'),'Atual QA');
+ assert.equal((await p.driver.findElements(By.css('#qa-import-html'))).length,0);
+ const imported=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey);
+ await (await p.element('#sim-import-file')).sendKeys(file);await p.click('#sim-import');await waitSaveIdle(p);await p.waitText('#sim-feedback','Nenhuma simulação nova');await assertLocalUnchanged(p,imported,fields);
+ await p.click('[data-sim-restore="'+original.items[1].id+'"]');await p.waitText('#uso-result-value','0,110');
+ await p.click('[data-sim-restore="'+original.items[0].id+'"]');await p.waitText('#comp-result','200,0 ml');await p.waitText('#comp-result','100,0 ml');
+});
+scenario('importacao sem arquivo vazia ou cancelada mantem dados e permite tentar novamente',async p=>{
+ await p.open('/calc.html');await p.click('#sim-import');await p.waitText('#sim-feedback','Escolha uma cópia JSON');
+ await prepareProject(p,'Atual QA',20);await clickSave(p);const raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ await chooseCopy(p,copyPayload([]));await p.click('#sim-import');await waitSaveIdle(p);await p.waitText('#sim-feedback','Nenhuma simulação nova');await assertLocalUnchanged(p,raw,fields);
+ const copy=copyPayload([importItem()]);await chooseCopy(p,copy);await p.click('#sim-import');const a=await p.driver.wait(until.alertIsPresent(),10000);assert.match(await a.getText(),/registros atuais e os campos serão mantidos/);await a.dismiss();await p.waitText('#sim-feedback','Importação cancelada');await assertLocalUnchanged(p,raw,fields);
+ await chooseCopy(p,copy);await importChosen(p);assert.equal((await savedItems(p)).items.length,2);
+});
+const invalidCopies=[
+ ['JSON quebrado','{invalido QA'],
+ ['versao desconhecida',JSON.stringify({version:2,items:[importItem()]})],
+ ['identificadores repetidos',copyPayload([importItem(),importItem()])],
+ ['dimensao textual',copyPayload([importItem('ok'),{...importItem(),snapshot:{...importItem().snapshot,values:['10',10,1]}}])],
+ ['formato desconhecido',copyPayload([importItem('ok'),{...importItem(),snapshot:{...importItem().snapshot,shape:'desconhecido'}}])]
+];
+for(const [name,copy] of invalidCopies)scenario('importacao atomica recusa '+name,async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Atual QA',20);await clickSave(p);const raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ await chooseCopy(p,copy);await p.click('#sim-import');await waitSaveIdle(p);await p.waitText('#sim-feedback','cópia inválida ou ilegível');await assertLocalUnchanged(p,raw,fields);
+ assert.equal(await (await p.element('#sim-import-file')).getAttribute('value'),'');
+});
+scenario('importacao aceita limite de tamanho e recusa arquivo maior sem modificar lista',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Atual QA',20);await clickSave(p);const raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ await chooseCopy(p,copyPayload([importItem()])+' '.repeat(131073));await p.click('#sim-import');await p.waitText('#sim-feedback','limite de 128 KiB');await assertLocalUnchanged(p,raw,fields);
+ const valid=copyPayload([importItem()]);await chooseCopy(p,valid+' '.repeat(131072-Buffer.byteLength(valid,'utf8')));await importChosen(p);assert.equal((await savedItems(p)).items.length,2);
+});
+scenario('importacao respeita dez registros sem descarte nem adicao parcial',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Atual QA',20);await clickSave(p);
+ await chooseCopy(p,copyPayload(Array.from({length:9},(_,i)=>importItem('qa-'+i))));await importChosen(p,9);assert.equal((await savedItems(p)).items.length,10);
+ const raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ await chooseCopy(p,copyPayload([importItem('excedente')]));await p.click('#sim-import');await waitSaveIdle(p);await p.waitText('#sim-feedback','ultrapassaria o limite de 10');await assertLocalUnchanged(p,raw,fields);
+});
+scenario('id existente com conteudo diferente recusa toda copia preservando original',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Atual QA',20);await clickSave(p);const item=(await savedItems(p)).items[0],raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ await chooseCopy(p,copyPayload([importItem('novo'),{...item,name:'Outro nome QA'}]));await p.click('#sim-import');await waitSaveIdle(p);await p.waitText('#sim-feedback','Conflito de identificação');await assertLocalUnchanged(p,raw,fields);
+});
+scenario('falha de gravacao da importacao mantem lista e permite reenviar arquivo',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Atual QA',20);await clickSave(p);const raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p),copy=copyPayload([importItem()]);
+ await p.driver.executeScript('window.__qaSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException("QA quota","QuotaExceededError")}');
+ await chooseCopy(p,copy);await p.click('#sim-import');await p.alert(/Adicionar 1 simulação/);await waitSaveIdle(p);await p.waitText('#sim-feedback','Não foi possível salvar');await assertLocalUnchanged(p,raw,fields);
+ await p.driver.executeScript('Storage.prototype.setItem=window.__qaSetItem');await chooseCopy(p,copy);await importChosen(p);assert.equal((await savedItems(p)).items.length,2);
+});
+scenario('importacao usa lock real recusa aba antiga e preserva escrita externa antes do retry',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Aba A QA',10);await clickSave(p);const a=await p.driver.getWindowHandle(),fields=await currentCalculation(p),copy=copyPayload([importItem()]);await chooseCopy(p,copy);
+ await p.driver.switchTo().newWindow('tab');await p.open('/calc.html');await prepareProject(p,'Aba B QA',20);await clickSave(p);const external=await savedItems(p);
+ await p.driver.switchTo().window(a);await p.driver.executeScript('navigator.locks.request(arguments[0],()=>new Promise(resolve=>{window.__qaImportRelease=resolve}))',storageKey);await p.driver.wait(()=>p.driver.executeScript('return typeof window.__qaImportRelease==="function"'),10000);
+ try{
+  await p.click('#sim-import');await p.alert(/Adicionar 1 simulação/);await p.waitText('#sim-feedback','Salvando simulações');
+  assert.equal(await (await p.element('#sim-import')).isEnabled(),false);assert.equal(await (await p.element('#sim-import-file')).isEnabled(),false);assert.deepEqual(await savedItems(p),external);
+  await p.driver.executeScript('window.__qaImportRelease()');await waitSaveIdle(p);await p.waitText('#sim-feedback','alterada em outra aba');assert.deepEqual(await savedItems(p),external);assert.deepEqual(await currentCalculation(p),fields);
+  await chooseCopy(p,copy);await importChosen(p);assert.deepEqual((await savedItems(p)).items,[importItem(),...external.items]);
+ }finally{await p.driver.executeScript('if(window.__qaImportRelease)window.__qaImportRelease()');}
+});
+scenario('importacao nao substitui armazenamento atual corrompido',async p=>{
+ await p.open('/calc.html');await p.driver.executeScript('localStorage.setItem(arguments[0],"{original invalido QA")',storageKey);await p.driver.navigate().refresh();await prepareProject(p,'Rascunho QA',20);const fields=await currentCalculation(p);
+ await chooseCopy(p,copyPayload([importItem()]));await p.click('#sim-import');await p.waitText('#sim-feedback','reinicie a lista inválida antes de importar');await assertLocalUnchanged(p,'{original invalido QA',fields);
+});
+scenario('importacao guarda somente entradas reconhecidas e recalcula resultados',async p=>{
+ await p.open('/calc.html');const item={...importItem(),result:999,snapshot:{...importItem().snapshot,result:999,extra:'<img id="qa-import-extra">'}};
+ await chooseCopy(p,copyPayload([item]));await importChosen(p);assert.deepEqual((await savedItems(p)).items,[importItem()]);await p.click('[data-sim-restore]');await p.waitText('#uso-result-value','0,110');assert.equal((await p.driver.findElements(By.css('#qa-import-extra'))).length,0);
 });

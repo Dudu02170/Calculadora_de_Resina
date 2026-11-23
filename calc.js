@@ -127,17 +127,25 @@
   function recoveryState(){
     if($('sim-reset'))$('sim-reset').hidden=readable||typeof recoveryRaw!=='string';
   }
+  function parseSaved(raw){
+    var data=JSON.parse(raw);
+    if(!data||data.version!==1||!Array.isArray(data.items)||data.items.length>10)throw Error('Formato inválido');
+    var ids=new Set();
+    data.items.forEach(function(item){
+      if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>60||!validSnapshot(item.snapshot))throw Error('Simulação inválida');
+      ids.add(item.id);
+    });
+    return data;
+  }
+  function copyItem(item){
+    var s=item.snapshot;
+    return {id:item.id,name:item.name,snapshot:s.mode==='uso'?{mode:'uso',shape:s.shape,values:s.values.slice(),density:s.density}:{mode:'comp',a:s.a,b:s.b,total:s.total,unit:s.unit}};
+  }
   function loadSaved(){
     var raw,read=false;
     try{
       raw=localStorage.getItem(storageKey);read=true;
-      var data=raw===null?{version:1,items:[]}:JSON.parse(raw);
-      if(!data||data.version!==1||!Array.isArray(data.items)||data.items.length>10)throw Error('Formato inválido');
-      var ids=new Set();
-      data.items.forEach(function(item){
-        if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>60||!validSnapshot(item.snapshot))throw Error('Simulação inválida');
-        ids.add(item.id);
-      });
+      var data=raw===null?{version:1,items:[]}:parseSaved(raw);
       simulations=data.items;readable=true;knownRaw=raw;recoveryRaw=undefined;
     }catch(error){simulations=[];readable=false;recoveryRaw=read?raw:undefined;feedback('Não foi possível ler as simulações deste navegador. Os dados armazenados não foram alterados.');}
     recoveryState();renderSaved();
@@ -145,7 +153,7 @@
   function savingState(active){
     saving=active;
     if($('save-sim')){$('save-sim').disabled=active;$('save-sim').textContent=active?'Salvando...':'Salvar simulação atual';}
-    document.querySelectorAll('[data-sim-remove],#sim-export,#sim-reset').forEach(function(button){button.disabled=active;});
+    document.querySelectorAll('[data-sim-remove],#sim-export,#sim-reset,#sim-import,#sim-import-file').forEach(function(button){button.disabled=active;});
   }
   function storageChanged(){
     loadSaved();
@@ -197,6 +205,29 @@
       recoveryState();renderSaved();feedback('Lista reiniciada. Os campos atuais foram mantidos.');
     });
   }
+  async function importSaved(){
+    if(saving)return;
+    var input=$('sim-import-file'),file=input.files[0],next,added;
+    if(!readable){feedback('A lista atual não pôde ser lida. Confira a cópia local e reinicie a lista inválida antes de importar.');return;}
+    if(!file){feedback('Escolha uma cópia JSON para importar.');return;}
+    if(file.size>131072){input.value='';feedback('A cópia excede o limite de 128 KiB. Nenhum registro foi alterado.');return;}
+    savingState(true);feedback('Lendo cópia local...');
+    try{
+      var data=parseSaved(await file.text()),incoming=data.items.map(copyItem),additions=[];
+      incoming.forEach(function(item){
+        var existing=simulations.find(function(current){return current.id===item.id;});
+        if(existing&&JSON.stringify(copyItem(existing))!==JSON.stringify(item))throw Error('Conflito de identificação na cópia. Nenhum registro foi alterado.');
+        if(!existing)additions.push(item);
+      });
+      if(simulations.length+additions.length>10)throw Error('A importação ultrapassaria o limite de 10 simulações. Nenhum registro foi alterado.');
+      added=additions.length;next=additions.concat(simulations);
+    }catch(error){
+      feedback(error.message==='Conflito de identificação na cópia. Nenhum registro foi alterado.'||error.message==='A importação ultrapassaria o limite de 10 simulações. Nenhum registro foi alterado.'?error.message:'Não foi possível importar: cópia inválida ou ilegível. Nenhum registro foi alterado.');return;
+    }finally{input.value='';savingState(false);}
+    if(!added){feedback('Nenhuma simulação nova na cópia. Os registros atuais foram mantidos.');return;}
+    if(!confirm('Adicionar '+added+' simulação(ões) da cópia? Os registros atuais e os campos serão mantidos.')){feedback('Importação cancelada. Nenhum registro foi alterado.');return;}
+    persist(next,'Cópia importada: '+added+' simulação(ões) adicionada(s). Os campos atuais foram mantidos.');
+  }
   function saveCurrent(){
     if(saving)return;
     var s=snapshot($('calc-mode-comp').checked?'comp':'uso');
@@ -233,6 +264,7 @@
     }
     if($('sim-export'))$('sim-export').addEventListener('click',exportSaved);
     if($('sim-reset'))$('sim-reset').addEventListener('click',resetSaved);
+    if($('sim-import'))$('sim-import').addEventListener('click',importSaved);
     if($('compare-sim')){$('compare-sim').addEventListener('click',compareSaved);['compare-first','compare-second'].forEach(function(id){$(id).addEventListener('change',function(){clearComparison('Seleção alterada. Compare novamente.');});});}
   }
 

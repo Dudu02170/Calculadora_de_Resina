@@ -9,7 +9,7 @@
 - Entradas inválidas e resultados não representáveis não são salvos. Falha de escrita preserva lista anterior e informa erro/retry; leitura inválida bloqueia escrita para não sobrescrever dados antigos. Não apaga registros corrompidos automaticamente; reinício opcional exige confirmação e oferece cópia local.
 
 ## Como testar
-cd qa && npm install && npm test, com Node 22 e Chrome. São 49 Selenium (46 anteriores + 3 novos de cópia/recuperação). Estado/CI final no PR da funcionalidade. Asserções usam resultados numéricos de referência e o formulário real. localStorage real em Chrome isolado; injeção de erro de escrita somente no teste.
+cd qa && npm install && npm test, com Node 22 e Chrome. São 63 Selenium (49 anteriores + 14 novos de importação local). Estado/CI final no PR da funcionalidade. Asserções usam resultados numéricos de referência e o formulário real. localStorage real em Chrome isolado; injeção de erro de escrita somente no teste.
 
 ## Dependência e limites
 Parte de qa/test-automation, PR #1 ainda aberto. Revisar/integrar a suíte antes de retargetar a funcionalidade para main. Sem merge automático ou force-push, sem duplicar a suíte. Não há AGENTS.md no checkout ou ancestrais consultados.
@@ -17,7 +17,7 @@ A persistência depende da origem/permissão/quota do navegador e pode ser apaga
 
 ## Próximos passos
 1. Comparação lado a lado entregue para o mesmo modo e, nos componentes, mesma unidade. Avaliar conversões somente com regra explícita, sem misturar massa/volume.
-2. Validar outros navegadores e eventual importação validada de cópias. Cópia/reinício de lista inválida entregues abaixo; não há reparo/importação automática. Versões antigas/outros escritores continuam fora do protocolo de abas.
+2. Validar outros navegadores. Cópia, reinício e importação validada entregues abaixo; não há reparo/importação automática. Versões antigas/outros escritores continuam fora do protocolo de abas.
 
 ## Comparação de duas simulações
 Seleções exigem registros distintos existentes e o mesmo modo. Uso permite diferentes formatos, mostrando medidas com cm/mm, densidade e massa em kg; componentes mostram proporção, total e A/B somente na mesma unidade g/ml/kg. Nenhuma conversão automática, gravação ou alteração do formulário. Cabeçalhos e valores usam textContent; tabela tem caption/headers e rolagem horizontal em espaços estreitos.
@@ -42,4 +42,15 @@ Reiniciar lista salva aparece somente após leitura bem-sucedida de conteúdo in
 
 Três novos cenários Selenium, total 49: download real no Chrome e conteúdo igual ao storage sem alterar formulário; cópia de texto inválido, cancelamento/reinício, preservação de campos/outra chave/cópia em arquivo e retomada de salvar; conflito com lista corrigida por outra aba sem apagamento. O suporte QA define diretório de downloads isolado por cenário e os testes aguardam o arquivo concluído no sistema de arquivos, sem simular Blob/URL/clique. Dados são fictícios; os 46 anteriores mantêm as asserções.
 
-Limites: download depende do navegador/permissões e deve ser conferido pelo usuário antes de reiniciar. Reinício descarta o conteúdo inválido somente por decisão explícita, sem repará-lo; a cópia permanece um arquivo local, sem upload/importação ou sincronização. Outros navegadores, file:// e Tray não foram validados. A proteção entre abas mantém os limites do protocolo descrito acima. Como testar: cd qa && npm install && npm test (Node 22 e Chrome), evidências e cópias fictícias em qa/reports/ no artefato do Actions do PR #2.
+Limites: download depende do navegador/permissões e deve ser conferido pelo usuário antes de reiniciar. Reinício descarta o conteúdo inválido somente por decisão explícita, sem repará-lo; a cópia permanece um arquivo local, sem upload ou sincronização; importação explícita descrita abaixo. Outros navegadores, file:// e Tray não foram validados. A proteção entre abas mantém os limites do protocolo descrito acima. Como testar: cd qa && npm install && npm test (Node 22 e Chrome), evidências e cópias fictícias em qa/reports/ no artefato do Actions do PR #2.
+
+## Importação local de cópias válidas
+Entrega: controle de arquivo rotulado e botão Importar cópia. Lê somente o arquivo escolhido, JSON UTF-8 de até 128 KiB, sem HTTP/serviços novos. Reutiliza a validação version:1/items do armazenamento: até dez IDs únicos, nomes válidos e entradas positivas/representáveis dos formatos/unidades existentes. Campos desconhecidos e resultados fornecidos pelo arquivo são descartados; resultados continuam calculados pelos helpers da tela.
+
+Aceitação: valida o arquivo inteiro antes de propor gravação. Adiciona novos registros na ordem do arquivo antes dos atuais, sem modificar registros atuais nem formulário. IDs existentes com nome/entradas idênticos são ignorados; ID com conteúdo diferente recusa tudo. Total combinado acima de dez também recusa tudo, sem descarte ou importação parcial. Cópia vazia/repetida informa que não há registros novos. Confirma a quantidade antes de gravar; cancelar mantém tudo. Limpa a seleção de arquivo para permitir nova tentativa.
+
+Leitura mantém salvar/remover/exportar/reiniciar/importar ocupados; escrita usa persist e a mesma conferência/lock das demais operações. Conflito entre abas recarrega lista e recusa a operação; exige escolher o arquivo novamente para tentar. Falha de escrita mantém lista anterior. Lista atual ilegível/inválida não é substituída por importação: orienta conferir cópia e reiniciar explicitamente antes.
+
+Regressões: 14 novos Selenium, total 63, preservando os 49 anteriores. Arquivos reais no input via WebDriver: round trip de cópia realmente baixada (dois modos), preservação, repetição sem duplicação e restauração com valores independentes; sem arquivo/vazio/cancelamento/retry; JSON quebrado, versão desconhecida, IDs repetidos, dimensão textual e formato desconhecido sem adição parcial; tamanho exato de 128 KiB e excesso; limite combinado; conflito de ID; quota injetada e recuperação; duas abas com lock real retido, conflito e retry; armazenamento atual corrompido; descarte de resultados/campos desconhecidos com recálculo. Não injeta FileList/Blob nem chama funções internas. Somente o erro de quota é simulado; armazenamento, leitura de arquivo, download e locks são reais no Chrome de QA.
+
+Limites: não repara cópias inválidas, não faz merge de versões conflitantes nem substitui registros pelo ID. Sem sincronização/servidor/backend Java, outros navegadores e Tray pendentes. Mantém os limites do protocolo entre abas. Como testar: cd qa && npm install && npm test (Node 22/Chrome). Resultados finais no PR #2/Actions; arquivos são fictícios e ficam com JUnit em qa/reports/ no artefato. Referências de API: https://developer.mozilla.org/en-US/docs/Web/API/Blob/text e https://www.selenium.dev/documentation/webdriver/elements/file_upload/.

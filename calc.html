@@ -192,6 +192,9 @@
       <button type="button" class="preset-btn" id="sim-reset" hidden>Reiniciar lista salva</button>
     </div>
     <p>A cópia preserva os dados como estão; não corrige conteúdo inválido. Reiniciar a lista exige confirmação.</p>
+    <div class="calc-input-wrap"><label for="sim-import-file">Cópia JSON local (até 128 KiB)</label><input type="file" id="sim-import-file" accept=".json,application/json" aria-describedby="sim-import-help"></div>
+    <button type="button" class="preset-btn" id="sim-import">Importar cópia</button>
+    <p id="sim-import-help">Adiciona simulações após confirmação, sem substituir as atuais. Registros já presentes são ignorados; conflitos e excesso do limite de 10 recusam a cópia inteira. O arquivo é lido somente neste navegador.</p>
     <p id="sim-storage-note"></p>
     <p id="sim-feedback" role="status" aria-live="polite"></p>
     <ul id="sim-list"></ul>
