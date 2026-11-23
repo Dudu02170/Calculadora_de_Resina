@@ -478,3 +478,39 @@ scenario('importacao guarda somente entradas reconhecidas e recalcula resultados
  await p.open('/calc.html');const item={...importItem(),result:999,snapshot:{...importItem().snapshot,result:999,extra:'<img id="qa-import-extra">'}};
  await chooseCopy(p,copyPayload([item]));await importChosen(p);assert.deepEqual((await savedItems(p)).items,[importItem()]);await p.click('[data-sim-restore]');await p.waitText('#uso-result-value','0,110');assert.equal((await p.driver.findElements(By.css('#qa-import-extra'))).length,0);
 });
+
+async function renameTo(p,id,name){await p.click('[data-sim-rename="'+id+'"]');await p.alert(/Novo nome da simulação/,name);await waitSaveIdle(p);}
+scenario('renomeia simulacao sem duplicar ou alterar campos valores e ordem',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Primeira QA',10);await clickSave(p);await prepareProject(p,'Segunda QA',20);await clickSave(p);
+ const before=await savedItems(p),[second,first]=before.items;
+ await chooseComparison(p,first.id,second.id);await p.waitText('#compare-feedback','Comparação pronta');
+ await p.fill('#rc-l',30);await p.fill('#sim-name','Rascunho atual QA');const fields=await currentCalculation(p),name='<span id="qa-rename-html">Molde & QA</span>';
+ await renameTo(p,first.id,'  '+name+'  ');await p.waitText('#sim-feedback','Simulação renomeada');
+ assert.deepEqual((await savedItems(p)).items,[second,{...first,name}]);assert.deepEqual(await currentCalculation(p),fields);assert.equal(await (await p.element('#sim-name')).getAttribute('value'),'Rascunho atual QA');
+ assert.equal((await p.driver.findElements(By.css('#qa-rename-html'))).length,0);assert.equal((await p.driver.findElements(By.css('#compare-result table'))).length,0);
+ await p.click('#compare-sim');await p.waitText('#compare-result',name);assert.match(await result(p),/0,330\s*kg/);
+ await p.driver.navigate().refresh();assert.deepEqual((await savedItems(p)).items,[second,{...first,name}]);await p.click('[data-sim-restore="'+first.id+'"]');await p.waitText('#uso-result-value','0,110');assert.equal(await (await p.element('#sim-name')).getAttribute('value'),name);
+});
+scenario('renomeacao aceita sessenta caracteres e recusa vazio excesso cancelamento e nome igual',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Original QA',10);await clickSave(p);const id=(await savedItems(p)).items[0].id,raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ await p.click('[data-sim-rename]');const a=await p.driver.wait(until.alertIsPresent(),10000);assert.match(await a.getText(),/Novo nome/);await a.dismiss();await p.waitText('#sim-feedback','Renomeação cancelada');await assertLocalUnchanged(p,raw,fields);
+ for(const name of ['   ','N'.repeat(61)]){await renameTo(p,id,name);await p.waitText('#sim-feedback','Informe um nome de 1 a 60');await assertLocalUnchanged(p,raw,fields);}
+ await renameTo(p,id,'Original QA');await p.waitText('#sim-feedback','Nome mantido');await assertLocalUnchanged(p,raw,fields);
+ const name='N'.repeat(60);await renameTo(p,id,name);await p.waitText('#sim-feedback','Simulação renomeada');assert.equal((await savedItems(p)).items[0].name,name);assert.deepEqual(await currentCalculation(p),fields);
+});
+scenario('erro ao renomear mantem nome anterior e permite tentar novamente',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Original QA',10);await clickSave(p);const id=(await savedItems(p)).items[0].id,raw=await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),fields=await currentCalculation(p);
+ await p.driver.executeScript('window.__qaRenameSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException("QA quota","QuotaExceededError")}');
+ await renameTo(p,id,'Renomeada QA');await p.waitText('#sim-feedback','Não foi possível salvar');await assertLocalUnchanged(p,raw,fields);assert.equal(await p.text('#sim-list strong'),'Original QA');
+ await p.driver.executeScript('Storage.prototype.setItem=window.__qaRenameSetItem');await renameTo(p,id,'Renomeada QA');await p.waitText('#sim-feedback','Simulação renomeada');assert.equal((await savedItems(p)).items[0].name,'Renomeada QA');assert.deepEqual(await currentCalculation(p),fields);
+});
+scenario('renomeacao aguarda lock e nao sobrescreve nome alterado por outra aba',async p=>{
+ await p.open('/calc.html');await prepareProject(p,'Original QA',10);await clickSave(p);const a=await p.driver.getWindowHandle(),id=(await savedItems(p)).items[0].id,fields=await currentCalculation(p);
+ await p.driver.switchTo().newWindow('tab');await p.open('/calc.html');await renameTo(p,id,'Nome da aba B QA');await p.waitText('#sim-feedback','Simulação renomeada');const external=await savedItems(p);
+ await p.driver.switchTo().window(a);await p.driver.executeScript('navigator.locks.request(arguments[0],()=>new Promise(resolve=>{window.__qaRenameRelease=resolve}))',storageKey);await p.driver.wait(()=>p.driver.executeScript('return typeof window.__qaRenameRelease==="function"'),10000);
+ try{
+  await p.click('[data-sim-rename]');await p.alert(/Novo nome/,'Nome da aba A QA');await p.waitText('#sim-feedback','Salvando simulações');assert.equal(await (await p.element('[data-sim-rename]')).isEnabled(),false);assert.deepEqual(await savedItems(p),external);
+  await p.driver.executeScript('window.__qaRenameRelease()');await waitSaveIdle(p);await p.waitText('#sim-feedback','alterada em outra aba');assert.deepEqual(await savedItems(p),external);assert.deepEqual(await currentCalculation(p),fields);
+  await renameTo(p,id,'Nome revisado QA');await p.waitText('#sim-feedback','Simulação renomeada');assert.deepEqual((await savedItems(p)).items,[{...external.items[0],name:'Nome revisado QA'}]);assert.deepEqual(await currentCalculation(p),fields);
+ }finally{await p.driver.executeScript('if(window.__qaRenameRelease)window.__qaRenameRelease()');}
+});

@@ -117,7 +117,7 @@
     simulations.forEach(function(item){
       var row=document.createElement('li'),name=document.createElement('strong'),detail=document.createElement('p'),actions=document.createElement('div');
       name.textContent=item.name;detail.textContent=summary(item.snapshot);actions.className='sim-actions';
-      [['Restaurar','data-sim-restore',function(){restore(item);}],['Remover','data-sim-remove',function(){
+      [['Restaurar','data-sim-restore',function(){restore(item);}],['Renomear','data-sim-rename',function(){renameSaved(item);}],['Remover','data-sim-remove',function(){
         if(saving)return;
         if(confirm('Remover a simulação "'+item.name+'"?'))persist(simulations.filter(function(other){return other.id!==item.id;}),'Simulação removida.');
       }]].forEach(function(action){var button=document.createElement('button');button.type='button';button.className='preset-btn';button.textContent=action[0];button.setAttribute(action[1],item.id);button.addEventListener('click',action[2]);actions.appendChild(button);});
@@ -153,7 +153,7 @@
   function savingState(active){
     saving=active;
     if($('save-sim')){$('save-sim').disabled=active;$('save-sim').textContent=active?'Salvando...':'Salvar simulação atual';}
-    document.querySelectorAll('[data-sim-remove],#sim-export,#sim-reset,#sim-import,#sim-import-file').forEach(function(button){button.disabled=active;});
+    document.querySelectorAll('[data-sim-remove],[data-sim-rename],#sim-export,#sim-reset,#sim-import,#sim-import-file').forEach(function(button){button.disabled=active;});
   }
   function storageChanged(){
     loadSaved();
@@ -236,6 +236,15 @@
     var name=$('sim-name').value.trim().slice(0,60)||(s.mode==='uso'?shapes[s.shape][0]:'Componentes A:B');
     var item={id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),name:name,snapshot:s};
     persist([item].concat(simulations),'Simulação salva neste navegador.');
+  }
+  function renameSaved(item){
+    if(saving)return;
+    var name=prompt('Novo nome da simulação (1 a 60 caracteres):',item.name);
+    if(name===null){feedback('Renomeação cancelada. Os registros não foram alterados.');return;}
+    name=name.trim();
+    if(!name||name.length>60){feedback('Informe um nome de 1 a 60 caracteres. Os registros não foram alterados.');return;}
+    if(name===item.name){feedback('Nome mantido. Os registros não foram alterados.');return;}
+    persist(simulations.map(function(current){return current.id===item.id?{id:current.id,name:name,snapshot:current.snapshot}:current;}),'Simulação renomeada. Os campos atuais foram mantidos.');
   }
   function restore(item){
     var s=item.snapshot;
