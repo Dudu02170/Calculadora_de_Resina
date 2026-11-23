@@ -25,8 +25,8 @@ O cliente escolhe o formato da peça, informa as medidas em centímetros e receb
 
 Resinas epóxi são misturadas em proporção (por exemplo, 2:1). O cliente informa a proporção e a quantidade total, e a calculadora mostra quanto usar de cada componente, em gramas ou quilos, com barras de porcentagem. O componente B é calculado como `total − A`, para a soma fechar exata.
 
-## Salvar e restaurar simulações
-Preencha um cálculo válido e use **Salvar simulação atual**. O nome é opcional. A lista guarda até dez simulações no armazenamento local do navegador, incluindo formato/medidas/densidade ou proporção/quantidade/unidade. **Restaurar** preenche os campos do modo salvo e recalcula; **Remover** exige confirmação. A comparação lado a lado ainda não foi implementada.
+## Salvar, restaurar e comparar simulações
+Preencha um cálculo válido e use **Salvar simulação atual**. O nome é opcional. A lista guarda até dez simulações no armazenamento local do navegador, incluindo formato/medidas/densidade ou proporção/quantidade/unidade. **Restaurar** preenche os campos do modo salvo e recalcula; **Remover** exige confirmação. Em **Comparar simulações**, escolha dois registros diferentes do mesmo modo para ver entradas e resultados lado a lado. Componentes exigem a mesma unidade; não há conversão automática. Comparar não altera os campos atuais nem os registros salvos.
 
 Não há conta, servidor ou sincronização entre dispositivos. Os registros pertencem à origem da página: use o mesmo endereço/navegador para reabrir a lista. Em páginas abertas como arquivo local, acesso ao armazenamento pode variar por navegador. Limpar dados do site pode apagar a lista. Erros de armazenamento são informados sem apagar simulações antigas; o cálculo continua disponível. Não valida integração com a Tray ou checkout.
 

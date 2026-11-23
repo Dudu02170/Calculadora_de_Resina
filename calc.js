@@ -64,13 +64,55 @@
 
   var storageKey='colmeia.resina.simulations.v1',simulations=[],readable=true;
   function feedback(text){if($('sim-feedback'))$('sim-feedback').textContent=text;}
+  function measurements(s){
+    return s.values.map(function(value,i){return value+' '+((s.shape==='calc-shape-rcoat'&&i===2)||(s.shape==='calc-shape-ccoat'&&i===1)?'mm':'cm');}).join(' × ');
+  }
   function summary(s){
-    if(s.mode==='uso')return shapes[s.shape][0]+' · '+s.values.map(function(value,i){return value+' '+((s.shape==='calc-shape-rcoat'&&i===2)||(s.shape==='calc-shape-ccoat'&&i===1)?'mm':'cm');}).join(' × ')+' · '+fmt(s.density,2)+' g/ml · '+fmt(mass(s.shape,s.values,s.density),3)+' kg';
+    if(s.mode==='uso')return shapes[s.shape][0]+' · '+measurements(s)+' · '+fmt(s.density,2)+' g/ml · '+fmt(mass(s.shape,s.values,s.density),3)+' kg';
     var result=components(s.a,s.b,s.total),dec=s.unit==='kg'?3:1;
     return 'Componentes '+s.a+':'+s.b+' · A: '+fmt(result.a,dec)+' '+s.unit+' · B: '+fmt(result.b,dec)+' '+s.unit;
   }
+  function clearComparison(message){
+    if($('compare-result'))$('compare-result').replaceChildren();
+    if($('compare-feedback'))$('compare-feedback').textContent=message||'';
+  }
+  function comparisonOptions(){
+    if(!$('compare-first')||!$('compare-second'))return;
+    ['compare-first','compare-second'].forEach(function(id){
+      var select=$(id),current=select.value;
+      select.replaceChildren(new Option('Selecione uma simulação',''));
+      simulations.forEach(function(item,index){
+        var mode=item.snapshot.mode==='uso'?shapes[item.snapshot.shape][0]:'Componentes '+item.snapshot.unit;
+        select.add(new Option(item.name+' · '+mode+' ('+(index+1)+')',item.id));
+      });
+      if(simulations.some(function(item){return item.id===current;}))select.value=current;
+    });
+    clearComparison();
+  }
+  function comparisonValues(s){
+    if(s.mode==='uso')return [shapes[s.shape][0],measurements(s),String(s.density).replace('.',',')+' g/ml',fmt(mass(s.shape,s.values,s.density),3)+' kg'];
+    var result=components(s.a,s.b,s.total),dec=s.unit==='kg'?3:1;
+    return [s.a+':'+s.b,fmt(s.total,dec)+' '+s.unit,fmt(result.a,dec)+' '+s.unit,fmt(result.b,dec)+' '+s.unit];
+  }
+  function compareSaved(){
+    clearComparison();
+    var first=simulations.find(function(item){return item.id===$('compare-first').value;}),second=simulations.find(function(item){return item.id===$('compare-second').value;});
+    if(!first||!second){clearComparison('Escolha duas simulações salvas.');return;}
+    if(first.id===second.id){clearComparison('Escolha duas simulações diferentes.');return;}
+    if(first.snapshot.mode!==second.snapshot.mode){clearComparison('Compare simulações do mesmo modo: uso ou componentes.');return;}
+    if(first.snapshot.mode==='comp'&&first.snapshot.unit!==second.snapshot.unit){clearComparison('Os componentes devem usar a mesma unidade. Nenhuma conversão foi aplicada.');return;}
+    var table=document.createElement('table'),caption=document.createElement('caption'),head=document.createElement('thead'),body=document.createElement('tbody'),header=document.createElement('tr');
+    caption.textContent='Comparação de simulações salvas';table.appendChild(caption);
+    ['Dados',first.name,second.name].forEach(function(text){var th=document.createElement('th');th.scope='col';th.textContent=text;header.appendChild(th);});
+    head.appendChild(header);table.appendChild(head);
+    var labels=first.snapshot.mode==='uso'?['Formato','Medidas','Densidade','Quantidade']:['Proporção A:B','Total','Componente A','Componente B'];
+    var a=comparisonValues(first.snapshot),b=comparisonValues(second.snapshot);
+    labels.forEach(function(label,index){var row=document.createElement('tr'),th=document.createElement('th');th.scope='row';th.textContent=label;row.appendChild(th);[a[index],b[index]].forEach(function(text){var cell=document.createElement('td');cell.textContent=text;row.appendChild(cell);});body.appendChild(row);});
+    table.appendChild(body);$('compare-result').appendChild(table);
+    $('compare-feedback').textContent='Comparação pronta. Os registros e os campos atuais não foram alterados.';
+  }
   function renderSaved(){
-    var list=$('sim-list');if(!list)return;list.replaceChildren();
+    var list=$('sim-list');if(!list)return;comparisonOptions();list.replaceChildren();
     if(!simulations.length){var empty=document.createElement('li');empty.textContent='Nenhuma simulação salva.';list.appendChild(empty);return;}
     simulations.forEach(function(item){
       var row=document.createElement('li'),name=document.createElement('strong'),detail=document.createElement('p'),actions=document.createElement('div');
@@ -130,6 +172,7 @@
     for(i=0;i<pb.length;i++){ (function(btn){ btn.addEventListener('click',function(){ setRatio(parseFloat(btn.getAttribute('data-ra')),parseFloat(btn.getAttribute('data-rb'))); }); })(pb[i]); }
     calcUso(); calcComp();
     if($('save-sim')){$('save-sim').addEventListener('click',saveCurrent);loadSaved();}
+    if($('compare-sim')){$('compare-sim').addEventListener('click',compareSaved);['compare-first','compare-second'].forEach(function(id){$(id).addEventListener('change',function(){clearComparison('Seleção alterada. Compare novamente.');});});}
   }
 
   /* espera o conteúdo existir (na Tray o conteúdo pode carregar via AJAX) */

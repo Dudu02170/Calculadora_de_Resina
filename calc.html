@@ -189,6 +189,15 @@
     <button type="button" class="preset-btn" id="save-sim">Salvar simulação atual</button>
     <p id="sim-feedback" role="status" aria-live="polite"></p>
     <ul id="sim-list"></ul>
+    <h3 class="calc-section-title">Comparar simulações</h3>
+    <p>Escolha dois registros do mesmo modo. Componentes devem usar a mesma unidade; os valores não são convertidos.</p>
+    <div class="calc-input-row">
+      <div class="calc-input-wrap"><label for="compare-first">Primeira simulação</label><select id="compare-first"></select></div>
+      <div class="calc-input-wrap"><label for="compare-second">Segunda simulação</label><select id="compare-second"></select></div>
+    </div>
+    <button type="button" class="preset-btn" id="compare-sim">Comparar selecionadas</button>
+    <p id="compare-feedback" role="status" aria-live="polite"></p>
+    <div id="compare-result" class="sim-compare"></div>
   </section>
 
   <div class="calc-foot">Calculadora de Resina • Colmeia Resinas</div>

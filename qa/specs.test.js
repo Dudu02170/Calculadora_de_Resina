@@ -249,3 +249,60 @@ scenario('limite de dez simulacoes nao descarta registros anteriores',async p=>{
  const before=await savedItems(p);assert.equal(before.items.length,10);assert.equal(new Set(before.items.map(x=>x.id)).size,10);
  await p.fill('#sim-name','Excedente QA');await p.click('#save-sim');await p.waitText('#sim-feedback','Limite de 10');assert.deepEqual(await savedItems(p),before);
 });
+
+const comparisonRows=p=>p.driver.executeScript('return Array.from(document.querySelectorAll("#compare-result tbody tr"),r=>Array.from(r.children,c=>c.textContent))');
+async function saveNamed(p,name){await p.fill('#sim-name',name);await p.click('#save-sim');await p.waitText('#sim-feedback','Simulação salva');}
+async function chooseComparison(p,first,second){await p.select('#compare-first',first);await p.select('#compare-second',second);await p.click('#compare-sim');}
+const currentCalculation=p=>p.driver.executeScript('return Array.from(document.querySelectorAll(".uso-in,.comp-in,input[name=calc-mode],input[name=calc-shape]"),e=>[e.id,e.value,e.checked])');
+scenario('compara moldagem e revestimento com medidas densidade e massa sem gravar',async p=>{
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':0.5,'uso-density':1.2});await saveNamed(p,'<span id="qa-comparison-name">Molde QA</span>');
+ await p.click('label[for="calc-shape-rcoat"]');await inputs(p,{'rcoat-l':10,'rcoat-w':10,'rcoat-t':5,'uso-density':1.1});await saveNamed(p,'Revestimento QA');
+ const before=await savedItems(p),fields=await currentCalculation(p),first=before.items[1].id,second=before.items[0].id;
+ await chooseComparison(p,first,second);await p.waitText('#compare-feedback','Comparação pronta');
+ assert.deepEqual(await comparisonRows(p),[
+  ['Formato','Moldagem retangular','Revestimento retangular'],['Medidas','10 cm × 10 cm × 0.5 cm','10 cm × 10 cm × 5 mm'],
+  ['Densidade','1,2 g/ml','1,1 g/ml'],['Quantidade','0,060 kg','0,055 kg']
+ ]);
+ assert.equal(await p.driver.executeScript('return document.querySelectorAll("#qa-comparison-name").length'),0);
+ const headers=await p.driver.executeScript('return Array.from(document.querySelectorAll("#compare-result thead th"),e=>e.textContent)');
+ assert.deepEqual(headers,['Dados','<span id="qa-comparison-name">Molde QA</span>','Revestimento QA']);
+ assert.deepEqual(await savedItems(p),before);assert.deepEqual(await currentCalculation(p),fields);
+});
+for(const unit of ['g','ml','kg']){
+ scenario('compara componentes em '+unit+' com proporcoes e totais independentes',async p=>{
+  await p.open('/calc.html');await p.click('label[for="calc-mode-comp"]');await p.select('#comp-unit',unit);
+  await p.fill('#comp-total',unit==='kg'?3:300);await saveNamed(p,'Mistura 2:1 QA');
+  await p.click('.preset-btn[data-ra="3"]');await p.fill('#comp-total',unit==='kg'?4:400);await saveNamed(p,'Mistura 3:1 QA');
+  const before=await savedItems(p),fields=await currentCalculation(p);
+  await chooseComparison(p,before.items[1].id,before.items[0].id);
+  const expected=unit==='kg'?['3,000','4,000','2,000','3,000','1,000']:['300,0','400,0','200,0','300,0','100,0'];
+  assert.deepEqual(await comparisonRows(p),[
+   ['Proporção A:B','2:1','3:1'],['Total',expected[0]+' '+unit,expected[1]+' '+unit],
+   ['Componente A',expected[2]+' '+unit,expected[3]+' '+unit],['Componente B',expected[4]+' '+unit,expected[4]+' '+unit]
+  ]);
+  assert.deepEqual(await savedItems(p),before);assert.deepEqual(await currentCalculation(p),fields);
+ });
+}
+scenario('comparacao recusa selecao incompleta mesmo registro modos e unidades distintos',async p=>{
+ await p.open('/calc.html');await p.click('#compare-sim');await p.waitText('#compare-feedback','Escolha duas simulações salvas');
+ await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await saveNamed(p,'Uso QA');
+ await p.click('label[for="calc-mode-comp"]');await p.fill('#comp-total',300);await saveNamed(p,'Gramas QA');
+ await p.select('#comp-unit','kg');await p.fill('#comp-total',3);await saveNamed(p,'Quilos QA');
+ const before=await savedItems(p),[kg,g,uso]=before.items;
+ await chooseComparison(p,g.id,g.id);await p.waitText('#compare-feedback','simulações diferentes');assert.deepEqual(await comparisonRows(p),[]);
+ await chooseComparison(p,uso.id,g.id);await p.waitText('#compare-feedback','mesmo modo');assert.deepEqual(await comparisonRows(p),[]);
+ await chooseComparison(p,g.id,kg.id);await p.waitText('#compare-feedback','mesma unidade');assert.deepEqual(await comparisonRows(p),[]);
+ assert.deepEqual(await savedItems(p),before);
+});
+scenario('trocar selecao e remover registro limpa comparacao obsoleta sem alterar campos',async p=>{
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await saveNamed(p,'Primeira QA');
+ await p.fill('#rc-l',20);await saveNamed(p,'Segunda QA');const before=await savedItems(p),fields=await currentCalculation(p),[second,first]=before.items;
+ await chooseComparison(p,first.id,second.id);assert.equal((await comparisonRows(p)).length,4);
+ await p.select('#compare-second',first.id);assert.deepEqual(await comparisonRows(p),[]);
+ await chooseComparison(p,first.id,second.id);await p.click('[data-sim-remove="'+first.id+'"]');await (await p.driver.wait(until.alertIsPresent(),10000)).dismiss();
+ assert.equal((await comparisonRows(p)).length,4);assert.deepEqual(await savedItems(p),before);
+ await p.click('[data-sim-remove="'+first.id+'"]');await p.alert(/Remover a simulação/);
+ assert.deepEqual(await comparisonRows(p),[]);assert.equal(await (await p.element('#compare-first')).getAttribute('value'),'');
+ assert.equal(await (await p.element('#compare-second')).getAttribute('value'),second.id);
+ assert.deepEqual((await savedItems(p)).items,[second]);assert.deepEqual(await currentCalculation(p),fields);
+});
