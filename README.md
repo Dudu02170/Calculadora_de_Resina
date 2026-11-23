@@ -28,6 +28,8 @@ Resinas epóxi são misturadas em proporção (por exemplo, 2:1). O cliente info
 ## Salvar, restaurar e comparar simulações
 Preencha um cálculo válido e use **Salvar simulação atual**. O nome é opcional. A lista guarda até dez simulações no armazenamento local do navegador, incluindo formato/medidas/densidade ou proporção/quantidade/unidade. **Restaurar** preenche os campos do modo salvo e recalcula; **Remover** exige confirmação. Em **Comparar simulações**, escolha dois registros diferentes do mesmo modo para ver entradas e resultados lado a lado. Componentes exigem a mesma unidade; não há conversão automática. Comparar não altera os campos atuais nem os registros salvos.
 
+Ao gravar por uma aba desatualizada, a lista mais recente é recarregada e uma nova tentativa é solicitada, preservando o formulário. Abas com suporte a bloqueio compartilham a fila de gravação; sem esse suporte, use uma única aba para salvar. Isso não protege contra alterações feitas por outros códigos que não seguem esse protocolo.
+
 Não há conta, servidor ou sincronização entre dispositivos. Os registros pertencem à origem da página: use o mesmo endereço/navegador para reabrir a lista. Em páginas abertas como arquivo local, acesso ao armazenamento pode variar por navegador. Limpar dados do site pode apagar a lista. Erros de armazenamento são informados sem apagar simulações antigas; o cálculo continua disponível. Não valida integração com a Tray ou checkout.
 
 ## Estrutura

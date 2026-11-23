@@ -62,7 +62,7 @@
       '<div class="calc-result-item"><span class="calc-result-label">Proporção utilizada</span><span class="calc-result-value">'+s.a+'<span class="calc-unit">:</span>'+s.b+'</span></div>';
   }
 
-  var storageKey='colmeia.resina.simulations.v1',simulations=[],readable=true;
+  var storageKey='colmeia.resina.simulations.v1',simulations=[],readable=true,knownRaw=null,saving=false;
   function feedback(text){if($('sim-feedback'))$('sim-feedback').textContent=text;}
   function measurements(s){
     return s.values.map(function(value,i){return value+' '+((s.shape==='calc-shape-rcoat'&&i===2)||(s.shape==='calc-shape-ccoat'&&i===1)?'mm':'cm');}).join(' × ');
@@ -118,6 +118,7 @@
       var row=document.createElement('li'),name=document.createElement('strong'),detail=document.createElement('p'),actions=document.createElement('div');
       name.textContent=item.name;detail.textContent=summary(item.snapshot);actions.className='sim-actions';
       [['Restaurar','data-sim-restore',function(){restore(item);}],['Remover','data-sim-remove',function(){
+        if(saving)return;
         if(confirm('Remover a simulação "'+item.name+'"?'))persist(simulations.filter(function(other){return other.id!==item.id;}),'Simulação removida.');
       }]].forEach(function(action){var button=document.createElement('button');button.type='button';button.className='preset-btn';button.textContent=action[0];button.setAttribute(action[1],item.id);button.addEventListener('click',action[2]);actions.appendChild(button);});
       row.append(name,detail,actions);list.appendChild(row);
@@ -132,17 +133,40 @@
         if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>60||!validSnapshot(item.snapshot))throw Error('Simulação inválida');
         ids.add(item.id);
       });
-      simulations=data.items;readable=true;
+      simulations=data.items;readable=true;knownRaw=raw;
     }catch(error){simulations=[];readable=false;feedback('Não foi possível ler as simulações deste navegador. Os dados armazenados não foram alterados.');}
     renderSaved();
   }
+  function savingState(active){
+    saving=active;
+    if($('save-sim')){$('save-sim').disabled=active;$('save-sim').textContent=active?'Salvando...':'Salvar simulação atual';}
+    document.querySelectorAll('[data-sim-remove]').forEach(function(button){button.disabled=active;});
+  }
   function persist(next,message){
+    if(saving)return;
     if(!readable){feedback('Não foi possível acessar as simulações. Os dados armazenados não foram alterados.');return;}
-    try{localStorage.setItem(storageKey,JSON.stringify({version:1,items:next}));}
-    catch(error){feedback('Não foi possível salvar as simulações neste navegador. Tente novamente.');return;}
-    simulations=next;renderSaved();feedback(message);
+    savingState(true);feedback('Salvando simulações...');
+    function write(){
+      if(localStorage.getItem(storageKey)!==knownRaw){
+        loadSaved();
+        if(readable)feedback('A lista foi alterada em outra aba. Confira os registros atualizados e tente novamente.');
+        return;
+      }
+      var raw=JSON.stringify({version:1,items:next});
+      localStorage.setItem(storageKey,raw);knownRaw=raw;
+      simulations=next;renderSaved();feedback(message);
+    }
+    function failed(){feedback('Não foi possível salvar as simulações neste navegador. Tente novamente.');}
+    try{
+      if(navigator.locks&&typeof navigator.locks.request==='function'){
+        navigator.locks.request(storageKey,{mode:'exclusive'},write).catch(failed).finally(function(){savingState(false);});
+      }else{
+        try{write();}catch(error){failed();}finally{savingState(false);}
+      }
+    }catch(error){failed();savingState(false);}
   }
   function saveCurrent(){
+    if(saving)return;
     var s=snapshot($('calc-mode-comp').checked?'comp':'uso');
     if(!validSnapshot(s)){feedback('Preencha valores válidos antes de salvar a simulação.');return;}
     if(simulations.length>=10){feedback('Limite de 10 simulações atingido. Remova uma para salvar outra.');return;}
@@ -171,7 +195,10 @@
     var pb=document.querySelectorAll('.preset-btn[data-ra][data-rb]');
     for(i=0;i<pb.length;i++){ (function(btn){ btn.addEventListener('click',function(){ setRatio(parseFloat(btn.getAttribute('data-ra')),parseFloat(btn.getAttribute('data-rb'))); }); })(pb[i]); }
     calcUso(); calcComp();
-    if($('save-sim')){$('save-sim').addEventListener('click',saveCurrent);loadSaved();}
+    if($('save-sim')){$('save-sim').addEventListener('click',saveCurrent);loadSaved();
+      var locking=false;try{locking=!!(navigator.locks&&navigator.locks.request);}catch(error){}
+      if(!locking&&$('sim-storage-note'))$('sim-storage-note').textContent='Neste navegador, use uma única aba para salvar simulações.';
+    }
     if($('compare-sim')){$('compare-sim').addEventListener('click',compareSaved);['compare-first','compare-second'].forEach(function(id){$(id).addEventListener('change',function(){clearComparison('Seleção alterada. Compare novamente.');});});}
   }
 

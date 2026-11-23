@@ -176,13 +176,14 @@ for(const [name,mold,moldValues,coat,coatValues,densities] of equivalentDepths){
 }
 
 const storageKey='colmeia.resina.simulations.v1';
+async function clickSave(p){await p.click('#save-sim');await p.driver.wait(()=>p.driver.executeScript('return !document.getElementById("save-sim").disabled'),10000);}
 const savedItems=p=>p.driver.executeScript('return JSON.parse(localStorage.getItem(arguments[0])||"null")',storageKey);
 for(const [shape,values,expected] of shapes){
  scenario('salva e restaura simulacao do formato '+shape,async p=>{
   await p.open('/calc.html');await p.click('label[for="calc-shape-'+shape+'"]');await inputs(p,values);
   if(shape==='rc')await p.fill('#uso-density',1.2);
   const name=shape==='rc'?'<span id="qa-sim-name">Projeto & QA</span>':'Projeto '+shape+' QA';
-  await p.fill('#sim-name',name);await p.click('#save-sim');await p.waitText('#sim-feedback','Simulação salva');
+  await p.fill('#sim-name',name);await clickSave(p);await p.waitText('#sim-feedback','Simulação salva');
   assert.equal(await p.text('#sim-list strong'),name);
   assert.equal(await p.driver.executeScript('return document.getElementById("qa-sim-name")'),null);
   const stored=await savedItems(p);assert.equal(stored.version,1);assert.equal(stored.items.length,1);
@@ -200,7 +201,7 @@ for(const unit of ['g','ml','kg']){
   await p.open('/calc.html');await inputs(p,{'rc-l':12,'rc-w':10,'rc-h':1});
   await p.click('label[for="calc-mode-comp"]');await p.click('.preset-btn[data-ra="3"]');
   await p.fill('#comp-total',unit==='kg'?4:400);await p.select('#comp-unit',unit);
-  await p.fill('#sim-name','Mistura QA');await p.click('#save-sim');await p.waitText('#sim-feedback','Simulação salva');
+  await p.fill('#sim-name','Mistura QA');await clickSave(p);await p.waitText('#sim-feedback','Simulação salva');
   assert.equal(await (await p.element('#comp-ra')).getAttribute('value'),'3');assert.equal(await (await p.element('#comp-rb')).getAttribute('value'),'1');
   assert.equal((await savedItems(p)).items.length,1);
   await p.driver.navigate().refresh();await inputs(p,{'rc-l':12,'rc-w':10,'rc-h':1});await p.click('label[for="calc-mode-comp"]');
@@ -216,42 +217,42 @@ for(const unit of ['g','ml','kg']){
  });
 }
 scenario('recusa salvar resultado invalido ou obsoleto e recupera apos correcao',async p=>{
- await p.open('/calc.html');await p.click('#save-sim');await p.waitText('#sim-feedback','Preencha valores válidos');assert.equal(await savedItems(p),null);
- await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#rc-h',0);await p.click('#save-sim');assert.equal(await savedItems(p),null);
- await p.fill('#rc-h',1);await p.click('#save-sim');assert.equal((await savedItems(p)).items.length,1);
- await p.click('label[for="calc-mode-comp"]');await p.click('#save-sim');await p.waitText('#sim-feedback','Preencha valores válidos');
+ await p.open('/calc.html');await clickSave(p);await p.waitText('#sim-feedback','Preencha valores válidos');assert.equal(await savedItems(p),null);
+ await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#rc-h',0);await clickSave(p);assert.equal(await savedItems(p),null);
+ await p.fill('#rc-h',1);await clickSave(p);assert.equal((await savedItems(p)).items.length,1);
+ await p.click('label[for="calc-mode-comp"]');await clickSave(p);await p.waitText('#sim-feedback','Preencha valores válidos');
  assert.equal((await savedItems(p)).items.length,1);assert.equal((await savedItems(p)).items[0].name,'Moldagem retangular');
 });
 scenario('remocao confirmada preserva outra simulacao e campos atuais',async p=>{
- await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#sim-name','Primeira QA');await p.click('#save-sim');
- await p.fill('#rc-l',20);await p.fill('#sim-name','Segunda QA');await p.click('#save-sim');
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#sim-name','Primeira QA');await clickSave(p);
+ await p.fill('#rc-l',20);await p.fill('#sim-name','Segunda QA');await clickSave(p);
  const before=await savedItems(p);await p.click('[data-sim-remove]');await (await p.driver.wait(until.alertIsPresent(),10000)).dismiss();assert.deepEqual(await savedItems(p),before);
- await p.click('[data-sim-remove]');await p.alert(/Remover a simulação/);await p.waitText('#sim-feedback','Simulação removida');
+ await p.click('[data-sim-remove]');await p.alert(/Remover a simulação/);await p.driver.wait(()=>p.driver.executeScript('return !document.getElementById("save-sim").disabled'),10000);await p.waitText('#sim-feedback','Simulação removida');
  assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'20');assert.deepEqual((await savedItems(p)).items,[before.items[1]]);
  await p.driver.navigate().refresh();assert.equal(await p.text('#sim-list strong'),'Primeira QA');
 });
 scenario('falha de armazenamento preserva lista e permite nova tentativa',async p=>{
- await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#sim-name','Original QA');await p.click('#save-sim');const before=await savedItems(p);
+ await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.fill('#sim-name','Original QA');await clickSave(p);const before=await savedItems(p);
  await p.fill('#rc-l',20);await p.fill('#sim-name','Nova QA');
  await p.driver.executeScript('window.__qaSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException("Quota QA","QuotaExceededError")}');
- await p.click('#save-sim');await p.waitText('#sim-feedback','Não foi possível salvar');assert.deepEqual(await savedItems(p),before);
+ await clickSave(p);await p.waitText('#sim-feedback','Não foi possível salvar');assert.deepEqual(await savedItems(p),before);
  assert.equal(await p.text('#sim-list strong'),'Original QA');assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'20');
- await p.driver.executeScript('Storage.prototype.setItem=window.__qaSetItem');await p.click('#save-sim');assert.equal((await savedItems(p)).items.length,2);
+ await p.driver.executeScript('Storage.prototype.setItem=window.__qaSetItem');await clickSave(p);assert.equal((await savedItems(p)).items.length,2);
 });
 scenario('dados corrompidos nao sao sobrescritos e calculadora continua funcionando',async p=>{
  await p.open('/calc.html');await p.driver.executeScript('localStorage.setItem(arguments[0],"{invalido")',storageKey);await p.driver.navigate().refresh();
  await p.waitText('#sim-feedback','Os dados armazenados não foram alterados');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});await p.waitText('#uso-result-value','0,110');
- await p.click('#save-sim');assert.equal(await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),'{invalido');
+ await clickSave(p);assert.equal(await p.driver.executeScript('return localStorage.getItem(arguments[0])',storageKey),'{invalido');
 });
 scenario('limite de dez simulacoes nao descarta registros anteriores',async p=>{
  await p.open('/calc.html');await inputs(p,{'rc-l':10,'rc-w':10,'rc-h':1});
- for(let i=1;i<=10;i++){await p.fill('#sim-name','Projeto QA '+i);await p.click('#save-sim');}
+ for(let i=1;i<=10;i++){await p.fill('#sim-name','Projeto QA '+i);await clickSave(p);}
  const before=await savedItems(p);assert.equal(before.items.length,10);assert.equal(new Set(before.items.map(x=>x.id)).size,10);
- await p.fill('#sim-name','Excedente QA');await p.click('#save-sim');await p.waitText('#sim-feedback','Limite de 10');assert.deepEqual(await savedItems(p),before);
+ await p.fill('#sim-name','Excedente QA');await clickSave(p);await p.waitText('#sim-feedback','Limite de 10');assert.deepEqual(await savedItems(p),before);
 });
 
 const comparisonRows=p=>p.driver.executeScript('return Array.from(document.querySelectorAll("#compare-result tbody tr"),r=>Array.from(r.children,c=>c.textContent))');
-async function saveNamed(p,name){await p.fill('#sim-name',name);await p.click('#save-sim');await p.waitText('#sim-feedback','Simulação salva');}
+async function saveNamed(p,name){await p.fill('#sim-name',name);await clickSave(p);await p.waitText('#sim-feedback','Simulação salva');}
 async function chooseComparison(p,first,second){await p.select('#compare-first',first);await p.select('#compare-second',second);await p.click('#compare-sim');}
 const currentCalculation=p=>p.driver.executeScript('return Array.from(document.querySelectorAll(".uso-in,.comp-in,input[name=calc-mode],input[name=calc-shape]"),e=>[e.id,e.value,e.checked])');
 scenario('compara moldagem e revestimento com medidas densidade e massa sem gravar',async p=>{
@@ -301,8 +302,50 @@ scenario('trocar selecao e remover registro limpa comparacao obsoleta sem altera
  await p.select('#compare-second',first.id);assert.deepEqual(await comparisonRows(p),[]);
  await chooseComparison(p,first.id,second.id);await p.click('[data-sim-remove="'+first.id+'"]');await (await p.driver.wait(until.alertIsPresent(),10000)).dismiss();
  assert.equal((await comparisonRows(p)).length,4);assert.deepEqual(await savedItems(p),before);
- await p.click('[data-sim-remove="'+first.id+'"]');await p.alert(/Remover a simulação/);
+ await p.click('[data-sim-remove="'+first.id+'"]');await p.alert(/Remover a simulação/);await p.driver.wait(()=>p.driver.executeScript('return !document.getElementById("save-sim").disabled'),10000);
  assert.deepEqual(await comparisonRows(p),[]);assert.equal(await (await p.element('#compare-first')).getAttribute('value'),'');
  assert.equal(await (await p.element('#compare-second')).getAttribute('value'),second.id);
  assert.deepEqual((await savedItems(p)).items,[second]);assert.deepEqual(await currentCalculation(p),fields);
+});
+
+async function prepareProject(p,name,length){await inputs(p,{'rc-l':length,'rc-w':10,'rc-h':1});await p.fill('#sim-name',name);}
+async function waitSaveIdle(p){await p.driver.wait(()=>p.driver.executeScript('return !document.getElementById("save-sim").disabled'),10000);}
+scenario('aba desatualizada preserva gravacoes externas ao salvar e remover',async p=>{
+ await p.open('/calc.html');const a=await p.driver.getWindowHandle();await prepareProject(p,'Projeto A QA',10);
+ await p.driver.switchTo().newWindow('tab');await p.open('/calc.html');const b=await p.driver.getWindowHandle();await prepareProject(p,'Projeto B QA',20);
+ await p.driver.switchTo().window(a);await clickSave(p);const first=await savedItems(p);assert.equal(first.items.length,1);
+ await p.driver.switchTo().window(b);await clickSave(p);await p.waitText('#sim-feedback','alterada em outra aba');
+ assert.deepEqual(await savedItems(p),first);assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'20');assert.equal(await (await p.element('#sim-name')).getAttribute('value'),'Projeto B QA');
+ await clickSave(p);const both=await savedItems(p);assert.equal(both.items.length,2);assert.deepEqual(both.items[1],first.items[0]);
+ await p.driver.switchTo().window(a);await p.click('[data-sim-remove]');await p.alert(/Remover a simulação/);await waitSaveIdle(p);await p.waitText('#sim-feedback','alterada em outra aba');
+ assert.deepEqual(await savedItems(p),both);assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'10');
+ await p.click('[data-sim-remove="'+first.items[0].id+'"]');await p.alert(/Remover a simulação/);await waitSaveIdle(p);
+ assert.deepEqual((await savedItems(p)).items,[both.items[0]]);
+});
+scenario('duas abas aguardam bloqueio real e nao sobrescrevem escrita simultanea',async p=>{
+ await p.open('/calc.html');const a=await p.driver.getWindowHandle();await prepareProject(p,'Primeira aba QA',10);
+ assert.equal(await p.driver.executeScript('return typeof navigator.locks?.request'),'function');
+ await p.driver.switchTo().newWindow('tab');await p.open('/calc.html');const b=await p.driver.getWindowHandle();await prepareProject(p,'Segunda aba QA',20);
+ try{
+  await p.driver.switchTo().window(a);
+  // Real browser lock held by the test, not a replacement for the application's lock API.
+  await p.driver.executeScript('navigator.locks.request(arguments[0],()=>new Promise(resolve=>{window.__qaReleaseLock=resolve}))',storageKey);
+  await p.driver.wait(()=>p.driver.executeScript('return typeof window.__qaReleaseLock==="function"'),10000);
+  await p.click('#save-sim');await p.waitText('#save-sim','Salvando...');assert.equal(await (await p.element('#save-sim')).isEnabled(),false);
+  await p.click('#save-sim');assert.equal(await savedItems(p),null);
+  await p.driver.switchTo().window(b);await p.click('#save-sim');await p.waitText('#save-sim','Salvando...');assert.equal(await savedItems(p),null);
+  await p.driver.switchTo().window(a);await p.driver.executeScript('window.__qaReleaseLock()');await waitSaveIdle(p);await p.waitText('#sim-feedback','Simulação salva');
+  await p.driver.switchTo().window(b);await waitSaveIdle(p);await p.waitText('#sim-feedback','alterada em outra aba');
+  assert.equal((await savedItems(p)).items.length,1);assert.equal((await savedItems(p)).items[0].name,'Primeira aba QA');
+  assert.equal(await (await p.element('#rc-l')).getAttribute('value'),'20');await clickSave(p);
+  assert.equal((await savedItems(p)).items.length,2);assert.equal(new Set((await savedItems(p)).items.map(x=>x.id)).size,2);
+ }finally{await p.driver.switchTo().window(a);await p.driver.executeScript('if(window.__qaReleaseLock)window.__qaReleaseLock()');}
+});
+scenario('sem API de bloqueio ainda detecta copia desatualizada antes de gravar',async p=>{
+ await p.open('/calc.html');const a=await p.driver.getWindowHandle();await prepareProject(p,'Original QA',10);await clickSave(p);
+ await p.driver.executeScript('Object.defineProperty(navigator,"locks",{value:undefined,configurable:true})');
+ await p.driver.switchTo().newWindow('tab');await p.open('/calc.html');await p.driver.executeScript('Object.defineProperty(navigator,"locks",{value:undefined,configurable:true})');
+ await prepareProject(p,'Outro QA',20);await clickSave(p);const external=await savedItems(p);assert.equal(external.items.length,2);
+ await p.driver.switchTo().window(a);await prepareProject(p,'Terceiro QA',30);await clickSave(p);await p.waitText('#sim-feedback','alterada em outra aba');assert.deepEqual(await savedItems(p),external);
+ await clickSave(p);assert.equal((await savedItems(p)).items.length,3);assert.deepEqual((await savedItems(p)).items.slice(1),external.items);
 });
