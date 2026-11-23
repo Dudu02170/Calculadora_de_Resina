@@ -182,6 +182,33 @@
     </div>
   </div>
 
+  <section class="calc-section calc-history" aria-labelledby="sim-title">
+    <h2 id="sim-title" class="calc-section-title">Simulações salvas</h2>
+    <p>Guarde até 10 simulações somente neste navegador. Restaurar preenche os campos e recalcula o resultado. Renomear muda somente o nome salvo, sem criar outra simulação.</p>
+    <div class="calc-input-wrap"><label for="sim-name">Nome da simulação (opcional)</label><input id="sim-name" type="text" maxlength="60" placeholder="Ex: Mesa retangular"></div>
+    <button type="button" class="preset-btn" id="save-sim">Salvar simulação atual</button>
+    <div class="sim-actions">
+      <button type="button" class="preset-btn" id="sim-export">Baixar cópia local</button>
+      <button type="button" class="preset-btn" id="sim-reset" hidden>Reiniciar lista salva</button>
+    </div>
+    <p>A cópia preserva os dados como estão; não corrige conteúdo inválido. Reiniciar a lista exige confirmação.</p>
+    <div class="calc-input-wrap"><label for="sim-import-file">Cópia JSON local (até 128 KiB)</label><input type="file" id="sim-import-file" accept=".json,application/json" aria-describedby="sim-import-help"></div>
+    <button type="button" class="preset-btn" id="sim-import">Importar cópia</button>
+    <p id="sim-import-help">Adiciona simulações após confirmação, sem substituir as atuais. Registros já presentes são ignorados; conflitos e excesso do limite de 10 recusam a cópia inteira. O arquivo é lido somente neste navegador.</p>
+    <p id="sim-storage-note"></p>
+    <p id="sim-feedback" role="status" aria-live="polite"></p>
+    <ul id="sim-list"></ul>
+    <h3 class="calc-section-title">Comparar simulações</h3>
+    <p>Escolha dois registros do mesmo modo. Componentes devem usar a mesma unidade; os valores não são convertidos.</p>
+    <div class="calc-input-row">
+      <div class="calc-input-wrap"><label for="compare-first">Primeira simulação</label><select id="compare-first"></select></div>
+      <div class="calc-input-wrap"><label for="compare-second">Segunda simulação</label><select id="compare-second"></select></div>
+    </div>
+    <button type="button" class="preset-btn" id="compare-sim">Comparar selecionadas</button>
+    <p id="compare-feedback" role="status" aria-live="polite"></p>
+    <div id="compare-result" class="sim-compare"></div>
+  </section>
+
   <div class="calc-foot">Calculadora de Resina • Colmeia Resinas</div>
 
 </div>

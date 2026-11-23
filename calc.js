@@ -9,37 +9,249 @@
   function v(id){ var e=$(id); return e ? parseFloat(e.value) : NaN; }
   function fmt(n,d){ return n.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 
-  /* MODO 1: uso de resina (volume cm³ -> kg) */
+  var shapes={
+    'calc-shape-rc':['Moldagem retangular',['rc-l','rc-w','rc-h']],
+    'calc-shape-cc':['Moldagem circular',['cc-d','cc-h']],
+    'calc-shape-rcoat':['Revestimento retangular',['rcoat-l','rcoat-w','rcoat-t']],
+    'calc-shape-ccoat':['Revestimento circular',['ccoat-d','ccoat-t']],
+    'calc-shape-sph':['Esfera',['sph-d']],
+    'calc-shape-hsph':['Meia esfera',['hsph-d']]
+  };
+  function positive(n){ return typeof n==='number'&&Number.isFinite(n)&&n>0; }
+  function mass(shape,values,density){
+    if(!shapes[shape]||!Array.isArray(values)||values.length!==shapes[shape][1].length||!values.every(positive)||!positive(density))return null;
+    var a=values[0],b=values[1],c=values[2],vol;
+    if(shape==='calc-shape-rc')vol=a*b*c;
+    else if(shape==='calc-shape-cc')vol=Math.PI*(a/2)*(a/2)*b;
+    else if(shape==='calc-shape-rcoat')vol=a*b*(c/10);
+    else if(shape==='calc-shape-ccoat')vol=Math.PI*(a/2)*(a/2)*(b/10);
+    else if(shape==='calc-shape-sph')vol=(4/3)*Math.PI*Math.pow(a/2,3);
+    else vol=(2/3)*Math.PI*Math.pow(a/2,3);
+    var kg=vol*density/1000;return positive(kg)?kg:null;
+  }
+  function components(a,b,total){
+    if(![a,b,total].every(positive)||!positive(a+b))return null;
+    var amtA=(total*a)/(a+b),amtB=total-amtA,pA=a/(a+b)*100;
+    return [amtA,amtB].every(positive)?{a:amtA,b:amtB,pA:pA,pB:100-pA}:null;
+  }
+  function snapshot(mode){
+    if(mode==='uso'){
+      var sel=document.querySelector('input[name="calc-shape"]:checked'),shape=sel?sel.id:'calc-shape-rc';
+      var density=v('uso-density');if(isNaN(density)||density<=0)density=1.1;
+      return {mode:mode,shape:shape,values:shapes[shape][1].map(v),density:density};
+    }
+    return {mode:'comp',a:v('comp-ra'),b:v('comp-rb'),total:v('comp-total'),unit:$('comp-unit').value};
+  }
+  function validSnapshot(s){
+    return !!s&&((s.mode==='uso'&&mass(s.shape,s.values,s.density)!==null)||
+      (s.mode==='comp'&&['g','ml','kg'].indexOf(s.unit)!==-1&&components(s.a,s.b,s.total)!==null));
+  }
   function calcUso(){
-    var out=$('uso-result-value'); if(!out) return;
-    var sel=document.querySelector('input[name="calc-shape"]:checked');
-    var shape=sel ? sel.id : 'calc-shape-rc';
-    var dens=v('uso-density'); if(isNaN(dens)||dens<=0) dens=1.1;
-    var P=Math.PI, vol=NaN;
-    if(shape==='calc-shape-rc'){ var a=v('rc-l'),b=v('rc-w'),c=v('rc-h'); if(a>0&&b>0&&c>0) vol=a*b*c; }
-    else if(shape==='calc-shape-cc'){ var d=v('cc-d'),h=v('cc-h'); if(d>0&&h>0) vol=P*(d/2)*(d/2)*h; }
-    else if(shape==='calc-shape-rcoat'){ var l=v('rcoat-l'),w=v('rcoat-w'),t=v('rcoat-t'); if(l>0&&w>0&&t>0) vol=l*w*(t/10); }
-    else if(shape==='calc-shape-ccoat'){ var d2=v('ccoat-d'),t2=v('ccoat-t'); if(d2>0&&t2>0) vol=P*(d2/2)*(d2/2)*(t2/10); }
-    else if(shape==='calc-shape-sph'){ var d3=v('sph-d'); if(d3>0) vol=(4/3)*P*Math.pow(d3/2,3); }
-    else if(shape==='calc-shape-hsph'){ var d4=v('hsph-d'); if(d4>0) vol=(2/3)*P*Math.pow(d4/2,3); }
-    if(isNaN(vol)){ out.innerHTML='—'; return; }
-    var kg=vol*dens/1000;
-    out.innerHTML=fmt(kg,3)+'<span class="calc-unit">kg</span>';
+    var out=$('uso-result-value');if(!out)return;
+    var s=snapshot('uso'),kg=mass(s.shape,s.values,s.density);
+    out.innerHTML=kg===null?'—':fmt(kg,3)+'<span class="calc-unit">kg</span>';
+  }
+  function calcComp(){
+    var box=$('comp-result');if(!box)return;
+    var s=snapshot('comp'),result=components(s.a,s.b,s.total),unit=s.unit,dec=unit==='kg'?3:1;
+    if(!result){box.innerHTML='<div class="calc-comp-empty">Preencha a proporção e a quantidade.</div>';return;}
+    box.innerHTML=
+      '<div class="calc-comp-result"><div class="calc-comp-bar-head"><span class="calc-name">Componente A</span><span class="calc-amt">'+fmt(result.a,dec)+' '+unit+' ('+result.pA.toFixed(1)+'%)</span></div><div class="calc-bar-track"><div class="calc-bar-fill calc-bar-a" style="width:'+result.pA+'%"></div></div></div>'+
+      '<div class="calc-comp-result"><div class="calc-comp-bar-head"><span class="calc-name">Componente B</span><span class="calc-amt">'+fmt(result.b,dec)+' '+unit+' ('+result.pB.toFixed(1)+'%)</span></div><div class="calc-bar-track"><div class="calc-bar-fill calc-bar-b" style="width:'+result.pB+'%"></div></div></div>'+
+      '<div class="calc-result-item" style="margin-top:10px"><span class="calc-result-label">Total A + B</span><span class="calc-result-value">'+fmt(s.total,dec)+'<span class="calc-unit">'+unit+'</span></span></div>'+
+      '<div class="calc-result-item"><span class="calc-result-label">Proporção utilizada</span><span class="calc-result-value">'+s.a+'<span class="calc-unit">:</span>'+s.b+'</span></div>';
   }
 
-  /* MODO 2: componentes A:B (fecha exato: B = total - A) */
-  function calcComp(){
-    var box=$('comp-result'); if(!box) return;
-    var rA=v('comp-ra'),rB=v('comp-rb'),total=v('comp-total');
-    var ue=$('comp-unit'),unit=ue?ue.value:'g';
-    if(!(rA>0&&rB>0&&total>0)){ box.innerHTML='<div class="calc-comp-empty">Preencha a proporção e a quantidade.</div>'; return; }
-    var sum=rA+rB, amtA=(total*rA)/sum, amtB=total-amtA;
-    var pA=rA/sum*100, pB=100-pA, dec=unit==='kg'?3:1;
-    box.innerHTML=
-      '<div class="calc-comp-result"><div class="calc-comp-bar-head"><span class="calc-name">Componente A</span><span class="calc-amt">'+fmt(amtA,dec)+' '+unit+' ('+pA.toFixed(1)+'%)</span></div><div class="calc-bar-track"><div class="calc-bar-fill calc-bar-a" style="width:'+pA+'%"></div></div></div>'+
-      '<div class="calc-comp-result"><div class="calc-comp-bar-head"><span class="calc-name">Componente B</span><span class="calc-amt">'+fmt(amtB,dec)+' '+unit+' ('+pB.toFixed(1)+'%)</span></div><div class="calc-bar-track"><div class="calc-bar-fill calc-bar-b" style="width:'+pB+'%"></div></div></div>'+
-      '<div class="calc-result-item" style="margin-top:10px"><span class="calc-result-label">Total A + B</span><span class="calc-result-value">'+fmt(total,dec)+'<span class="calc-unit">'+unit+'</span></span></div>'+
-      '<div class="calc-result-item"><span class="calc-result-label">Proporção utilizada</span><span class="calc-result-value">'+rA+'<span class="calc-unit">:</span>'+rB+'</span></div>';
+  var storageKey='colmeia.resina.simulations.v1',simulations=[],readable=true,knownRaw=null,saving=false,recoveryRaw;
+  function feedback(text){if($('sim-feedback'))$('sim-feedback').textContent=text;}
+  function measurements(s){
+    return s.values.map(function(value,i){return value+' '+((s.shape==='calc-shape-rcoat'&&i===2)||(s.shape==='calc-shape-ccoat'&&i===1)?'mm':'cm');}).join(' × ');
+  }
+  function summary(s){
+    if(s.mode==='uso')return shapes[s.shape][0]+' · '+measurements(s)+' · '+fmt(s.density,2)+' g/ml · '+fmt(mass(s.shape,s.values,s.density),3)+' kg';
+    var result=components(s.a,s.b,s.total),dec=s.unit==='kg'?3:1;
+    return 'Componentes '+s.a+':'+s.b+' · A: '+fmt(result.a,dec)+' '+s.unit+' · B: '+fmt(result.b,dec)+' '+s.unit;
+  }
+  function clearComparison(message){
+    if($('compare-result'))$('compare-result').replaceChildren();
+    if($('compare-feedback'))$('compare-feedback').textContent=message||'';
+  }
+  function comparisonOptions(){
+    if(!$('compare-first')||!$('compare-second'))return;
+    ['compare-first','compare-second'].forEach(function(id){
+      var select=$(id),current=select.value;
+      select.replaceChildren(new Option('Selecione uma simulação',''));
+      simulations.forEach(function(item,index){
+        var mode=item.snapshot.mode==='uso'?shapes[item.snapshot.shape][0]:'Componentes '+item.snapshot.unit;
+        select.add(new Option(item.name+' · '+mode+' ('+(index+1)+')',item.id));
+      });
+      if(simulations.some(function(item){return item.id===current;}))select.value=current;
+    });
+    clearComparison();
+  }
+  function comparisonValues(s){
+    if(s.mode==='uso')return [shapes[s.shape][0],measurements(s),String(s.density).replace('.',',')+' g/ml',fmt(mass(s.shape,s.values,s.density),3)+' kg'];
+    var result=components(s.a,s.b,s.total),dec=s.unit==='kg'?3:1;
+    return [s.a+':'+s.b,fmt(s.total,dec)+' '+s.unit,fmt(result.a,dec)+' '+s.unit,fmt(result.b,dec)+' '+s.unit];
+  }
+  function compareSaved(){
+    clearComparison();
+    var first=simulations.find(function(item){return item.id===$('compare-first').value;}),second=simulations.find(function(item){return item.id===$('compare-second').value;});
+    if(!first||!second){clearComparison('Escolha duas simulações salvas.');return;}
+    if(first.id===second.id){clearComparison('Escolha duas simulações diferentes.');return;}
+    if(first.snapshot.mode!==second.snapshot.mode){clearComparison('Compare simulações do mesmo modo: uso ou componentes.');return;}
+    if(first.snapshot.mode==='comp'&&first.snapshot.unit!==second.snapshot.unit){clearComparison('Os componentes devem usar a mesma unidade. Nenhuma conversão foi aplicada.');return;}
+    var table=document.createElement('table'),caption=document.createElement('caption'),head=document.createElement('thead'),body=document.createElement('tbody'),header=document.createElement('tr');
+    caption.textContent='Comparação de simulações salvas';table.appendChild(caption);
+    ['Dados',first.name,second.name].forEach(function(text){var th=document.createElement('th');th.scope='col';th.textContent=text;header.appendChild(th);});
+    head.appendChild(header);table.appendChild(head);
+    var labels=first.snapshot.mode==='uso'?['Formato','Medidas','Densidade','Quantidade']:['Proporção A:B','Total','Componente A','Componente B'];
+    var a=comparisonValues(first.snapshot),b=comparisonValues(second.snapshot);
+    labels.forEach(function(label,index){var row=document.createElement('tr'),th=document.createElement('th');th.scope='row';th.textContent=label;row.appendChild(th);[a[index],b[index]].forEach(function(text){var cell=document.createElement('td');cell.textContent=text;row.appendChild(cell);});body.appendChild(row);});
+    table.appendChild(body);$('compare-result').appendChild(table);
+    $('compare-feedback').textContent='Comparação pronta. Os registros e os campos atuais não foram alterados.';
+  }
+  function renderSaved(){
+    var list=$('sim-list');if(!list)return;comparisonOptions();list.replaceChildren();
+    if(!simulations.length){var empty=document.createElement('li');empty.textContent='Nenhuma simulação salva.';list.appendChild(empty);return;}
+    simulations.forEach(function(item){
+      var row=document.createElement('li'),name=document.createElement('strong'),detail=document.createElement('p'),actions=document.createElement('div');
+      name.textContent=item.name;detail.textContent=summary(item.snapshot);actions.className='sim-actions';
+      [['Restaurar','data-sim-restore',function(){restore(item);}],['Renomear','data-sim-rename',function(){renameSaved(item);}],['Remover','data-sim-remove',function(){
+        if(saving)return;
+        if(confirm('Remover a simulação "'+item.name+'"?'))persist(simulations.filter(function(other){return other.id!==item.id;}),'Simulação removida.');
+      }]].forEach(function(action){var button=document.createElement('button');button.type='button';button.className='preset-btn';button.textContent=action[0];button.setAttribute(action[1],item.id);button.addEventListener('click',action[2]);actions.appendChild(button);});
+      row.append(name,detail,actions);list.appendChild(row);
+    });
+  }
+  function recoveryState(){
+    if($('sim-reset'))$('sim-reset').hidden=readable||typeof recoveryRaw!=='string';
+  }
+  function parseSaved(raw){
+    var data=JSON.parse(raw);
+    if(!data||data.version!==1||!Array.isArray(data.items)||data.items.length>10)throw Error('Formato inválido');
+    var ids=new Set();
+    data.items.forEach(function(item){
+      if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>60||!validSnapshot(item.snapshot))throw Error('Simulação inválida');
+      ids.add(item.id);
+    });
+    return data;
+  }
+  function copyItem(item){
+    var s=item.snapshot;
+    return {id:item.id,name:item.name,snapshot:s.mode==='uso'?{mode:'uso',shape:s.shape,values:s.values.slice(),density:s.density}:{mode:'comp',a:s.a,b:s.b,total:s.total,unit:s.unit}};
+  }
+  function loadSaved(){
+    var raw,read=false;
+    try{
+      raw=localStorage.getItem(storageKey);read=true;
+      var data=raw===null?{version:1,items:[]}:parseSaved(raw);
+      simulations=data.items;readable=true;knownRaw=raw;recoveryRaw=undefined;
+    }catch(error){simulations=[];readable=false;recoveryRaw=read?raw:undefined;feedback('Não foi possível ler as simulações deste navegador. Os dados armazenados não foram alterados.');}
+    recoveryState();renderSaved();
+  }
+  function savingState(active){
+    saving=active;
+    if($('save-sim')){$('save-sim').disabled=active;$('save-sim').textContent=active?'Salvando...':'Salvar simulação atual';}
+    document.querySelectorAll('[data-sim-remove],[data-sim-rename],#sim-export,#sim-reset,#sim-import,#sim-import-file').forEach(function(button){button.disabled=active;});
+  }
+  function storageChanged(){
+    loadSaved();
+    if(readable)feedback('A lista foi alterada em outra aba. Confira os registros atualizados e tente novamente.');
+  }
+  function storageWrite(write){
+    if(saving)return;
+    savingState(true);feedback('Salvando simulações...');
+    function failed(){feedback('Não foi possível salvar as simulações neste navegador. Tente novamente.');}
+    try{
+      if(navigator.locks&&typeof navigator.locks.request==='function'){
+        navigator.locks.request(storageKey,{mode:'exclusive'},write).catch(failed).finally(function(){savingState(false);});
+      }else{
+        try{write();}catch(error){failed();}finally{savingState(false);}
+      }
+    }catch(error){failed();savingState(false);}
+  }
+  function persist(next,message){
+    if(saving)return;
+    if(!readable){feedback('Não foi possível acessar as simulações. Os dados armazenados não foram alterados.');return;}
+    storageWrite(function(){
+      if(localStorage.getItem(storageKey)!==knownRaw){storageChanged();return;}
+      var raw=JSON.stringify({version:1,items:next});
+      localStorage.setItem(storageKey,raw);knownRaw=raw;
+      simulations=next;renderSaved();feedback(message);
+    });
+  }
+  function exportSaved(){
+    if(saving)return;
+    var url;
+    try{
+      var raw=localStorage.getItem(storageKey);
+      if(raw===null){feedback('Não há dados armazenados para baixar.');return;}
+      url=URL.createObjectURL(new Blob([raw],{type:'application/json;charset=utf-8'}));
+      var link=document.createElement('a');link.href=url;link.download='simulacoes-resina.json';link.hidden=true;
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},1000);
+      feedback('Download solicitado. Guarde a cópia antes de reiniciar uma lista inválida.');
+    }catch(error){if(url)URL.revokeObjectURL(url);feedback('Não foi possível baixar a cópia neste navegador. Os dados não foram alterados.');}
+  }
+  function resetSaved(){
+    if(saving||readable||typeof recoveryRaw!=='string')return;
+    var expected=recoveryRaw;
+    if(!confirm('Reiniciar a lista salva? Os registros armazenados serão apagados. Baixe uma cópia antes. Os campos atuais serão mantidos.'))return;
+    storageWrite(function(){
+      if(localStorage.getItem(storageKey)!==expected){storageChanged();return;}
+      var raw=JSON.stringify({version:1,items:[]});localStorage.setItem(storageKey,raw);
+      knownRaw=raw;simulations=[];readable=true;recoveryRaw=undefined;
+      recoveryState();renderSaved();feedback('Lista reiniciada. Os campos atuais foram mantidos.');
+    });
+  }
+  async function importSaved(){
+    if(saving)return;
+    var input=$('sim-import-file'),file=input.files[0],next,added;
+    if(!readable){feedback('A lista atual não pôde ser lida. Confira a cópia local e reinicie a lista inválida antes de importar.');return;}
+    if(!file){feedback('Escolha uma cópia JSON para importar.');return;}
+    if(file.size>131072){input.value='';feedback('A cópia excede o limite de 128 KiB. Nenhum registro foi alterado.');return;}
+    savingState(true);feedback('Lendo cópia local...');
+    try{
+      var data=parseSaved(await file.text()),incoming=data.items.map(copyItem),additions=[];
+      incoming.forEach(function(item){
+        var existing=simulations.find(function(current){return current.id===item.id;});
+        if(existing&&JSON.stringify(copyItem(existing))!==JSON.stringify(item))throw Error('Conflito de identificação na cópia. Nenhum registro foi alterado.');
+        if(!existing)additions.push(item);
+      });
+      if(simulations.length+additions.length>10)throw Error('A importação ultrapassaria o limite de 10 simulações. Nenhum registro foi alterado.');
+      added=additions.length;next=additions.concat(simulations);
+    }catch(error){
+      feedback(error.message==='Conflito de identificação na cópia. Nenhum registro foi alterado.'||error.message==='A importação ultrapassaria o limite de 10 simulações. Nenhum registro foi alterado.'?error.message:'Não foi possível importar: cópia inválida ou ilegível. Nenhum registro foi alterado.');return;
+    }finally{input.value='';savingState(false);}
+    if(!added){feedback('Nenhuma simulação nova na cópia. Os registros atuais foram mantidos.');return;}
+    if(!confirm('Adicionar '+added+' simulação(ões) da cópia? Os registros atuais e os campos serão mantidos.')){feedback('Importação cancelada. Nenhum registro foi alterado.');return;}
+    persist(next,'Cópia importada: '+added+' simulação(ões) adicionada(s). Os campos atuais foram mantidos.');
+  }
+  function saveCurrent(){
+    if(saving)return;
+    var s=snapshot($('calc-mode-comp').checked?'comp':'uso');
+    if(!validSnapshot(s)){feedback('Preencha valores válidos antes de salvar a simulação.');return;}
+    if(simulations.length>=10){feedback('Limite de 10 simulações atingido. Remova uma para salvar outra.');return;}
+    var name=$('sim-name').value.trim().slice(0,60)||(s.mode==='uso'?shapes[s.shape][0]:'Componentes A:B');
+    var item={id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),name:name,snapshot:s};
+    persist([item].concat(simulations),'Simulação salva neste navegador.');
+  }
+  function renameSaved(item){
+    if(saving)return;
+    var name=prompt('Novo nome da simulação (1 a 60 caracteres):',item.name);
+    if(name===null){feedback('Renomeação cancelada. Os registros não foram alterados.');return;}
+    name=name.trim();
+    if(!name||name.length>60){feedback('Informe um nome de 1 a 60 caracteres. Os registros não foram alterados.');return;}
+    if(name===item.name){feedback('Nome mantido. Os registros não foram alterados.');return;}
+    persist(simulations.map(function(current){return current.id===item.id?{id:current.id,name:name,snapshot:current.snapshot}:current;}),'Simulação renomeada. Os campos atuais foram mantidos.');
+  }
+  function restore(item){
+    var s=item.snapshot;
+    $(s.mode==='uso'?'calc-mode-uso':'calc-mode-comp').checked=true;
+    if(s.mode==='uso'){$(s.shape).checked=true;shapes[s.shape][1].forEach(function(id,i){$(id).value=s.values[i];});$('uso-density').value=s.density;}
+    else{$('comp-ra').value=s.a;$('comp-rb').value=s.b;$('comp-total').value=s.total;$('comp-unit').value=s.unit;}
+    $('sim-name').value=item.name;calcUso();calcComp();feedback('Simulação restaurada. Os outros campos foram preservados.');
   }
 
   function setRatio(a,b){ var A=$('comp-ra'),B=$('comp-rb'); if(A)A.value=a; if(B)B.value=b; calcComp(); }
@@ -52,9 +264,17 @@
     for(i=0;i<shapes.length;i++) shapes[i].addEventListener('change',calcUso);
     var compIn=document.querySelectorAll('.comp-in');
     for(i=0;i<compIn.length;i++){ compIn[i].addEventListener('input',calcComp); compIn[i].addEventListener('change',calcComp); }
-    var pb=document.querySelectorAll('.preset-btn');
+    var pb=document.querySelectorAll('.preset-btn[data-ra][data-rb]');
     for(i=0;i<pb.length;i++){ (function(btn){ btn.addEventListener('click',function(){ setRatio(parseFloat(btn.getAttribute('data-ra')),parseFloat(btn.getAttribute('data-rb'))); }); })(pb[i]); }
     calcUso(); calcComp();
+    if($('save-sim')){$('save-sim').addEventListener('click',saveCurrent);loadSaved();
+      var locking=false;try{locking=!!(navigator.locks&&navigator.locks.request);}catch(error){}
+      if(!locking&&$('sim-storage-note'))$('sim-storage-note').textContent='Neste navegador, use uma única aba para salvar simulações.';
+    }
+    if($('sim-export'))$('sim-export').addEventListener('click',exportSaved);
+    if($('sim-reset'))$('sim-reset').addEventListener('click',resetSaved);
+    if($('sim-import'))$('sim-import').addEventListener('click',importSaved);
+    if($('compare-sim')){$('compare-sim').addEventListener('click',compareSaved);['compare-first','compare-second'].forEach(function(id){$(id).addEventListener('change',function(){clearComparison('Seleção alterada. Compare novamente.');});});}
   }
 
   /* espera o conteúdo existir (na Tray o conteúdo pode carregar via AJAX) */

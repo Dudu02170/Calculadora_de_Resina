@@ -25,6 +25,17 @@ O cliente escolhe o formato da peça, informa as medidas em centímetros e receb
 
 Resinas epóxi são misturadas em proporção (por exemplo, 2:1). O cliente informa a proporção e a quantidade total, e a calculadora mostra quanto usar de cada componente, em gramas ou quilos, com barras de porcentagem. O componente B é calculado como `total − A`, para a soma fechar exata.
 
+## Salvar, restaurar e comparar simulações
+Preencha um cálculo válido e use **Salvar simulação atual**. O nome é opcional. A lista guarda até dez simulações no armazenamento local do navegador, incluindo formato/medidas/densidade ou proporção/quantidade/unidade. **Restaurar** preenche os campos do modo salvo e recalcula; **Renomear** muda somente o nome salvo (1 a 60 caracteres), sem duplicar o registro nem alterar os campos atuais; **Remover** exige confirmação. Em **Comparar simulações**, escolha dois registros diferentes do mesmo modo para ver entradas e resultados lado a lado. Componentes exigem a mesma unidade; não há conversão automática. Comparar não altera os campos atuais nem os registros salvos.
+
+Ao gravar por uma aba desatualizada, a lista mais recente é recarregada e uma nova tentativa é solicitada, preservando o formulário. Abas com suporte a bloqueio compartilham a fila de gravação; sem esse suporte, use uma única aba para salvar. Isso não protege contra alterações feitas por outros códigos que não seguem esse protocolo.
+
+**Baixar cópia local** solicita um arquivo com o conteúdo armazenado, inclusive se estiver inválido. Não corrige o arquivo. Quando a lista está inválida, **Reiniciar lista salva** permite começar vazia após confirmação; baixe a cópia antes. A ação mantém os campos atuais e as demais chaves do navegador, e recusa apagar se outra aba já tiver alterado os dados.
+
+**Importar cópia** lê um arquivo JSON local de até 128 KiB e adiciona simulações após confirmação. Use uma cópia válida baixada pela calculadora. Mantém registros atuais e campos; ignora IDs já presentes com as mesmas entradas/nome. Conflitos de ID, conteúdo inválido e total acima de dez recusam a cópia inteira, sem descartar registros para abrir espaço. Resultados são recalculados a partir das entradas, sem confiar em resultados do arquivo. Lista atual inválida precisa ser conferida e reiniciada explicitamente antes de importar. Não envia o arquivo para servidor.
+
+Não há conta, servidor ou sincronização entre dispositivos. Os registros pertencem à origem da página: use o mesmo endereço/navegador para reabrir a lista. Em páginas abertas como arquivo local, acesso ao armazenamento pode variar por navegador. Limpar dados do site pode apagar a lista. Erros de armazenamento são informados sem apagar simulações antigas; o cálculo continua disponível. Não valida integração com a Tray ou checkout.
+
 ## Estrutura
 
 | Arquivo | Conteúdo |
