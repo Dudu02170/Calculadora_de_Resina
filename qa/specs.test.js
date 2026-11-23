@@ -200,7 +200,10 @@ for(const unit of ['g','ml','kg']){
   await p.open('/calc.html');await inputs(p,{'rc-l':12,'rc-w':10,'rc-h':1});
   await p.click('label[for="calc-mode-comp"]');await p.click('.preset-btn[data-ra="3"]');
   await p.fill('#comp-total',unit==='kg'?4:400);await p.select('#comp-unit',unit);
-  await p.fill('#sim-name','Mistura QA');await p.click('#save-sim');
+  await p.fill('#sim-name','Mistura QA');await p.click('#save-sim');await p.waitText('#sim-feedback','Simulação salva');
+  assert.equal(await (await p.element('#comp-ra')).getAttribute('value'),'3');assert.equal(await (await p.element('#comp-rb')).getAttribute('value'),'1');
+  assert.equal((await savedItems(p)).items.length,1);
+  await p.driver.navigate().refresh();await inputs(p,{'rc-l':12,'rc-w':10,'rc-h':1});await p.click('label[for="calc-mode-comp"]');
   await p.fill('#comp-total',999);await p.select('#comp-unit',unit==='g'?'kg':'g');await p.click('.preset-btn[data-ra="100"][data-rb="45"]');
   await p.click('label[for="calc-mode-uso"]');await p.click('[data-sim-restore]');
   assert.equal(await p.driver.executeScript('return document.getElementById("calc-mode-comp").checked'),true);

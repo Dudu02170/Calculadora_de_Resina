@@ -126,7 +126,7 @@
     for(i=0;i<shapes.length;i++) shapes[i].addEventListener('change',calcUso);
     var compIn=document.querySelectorAll('.comp-in');
     for(i=0;i<compIn.length;i++){ compIn[i].addEventListener('input',calcComp); compIn[i].addEventListener('change',calcComp); }
-    var pb=document.querySelectorAll('.preset-btn');
+    var pb=document.querySelectorAll('.preset-btn[data-ra][data-rb]');
     for(i=0;i<pb.length;i++){ (function(btn){ btn.addEventListener('click',function(){ setRatio(parseFloat(btn.getAttribute('data-ra')),parseFloat(btn.getAttribute('data-rb'))); }); })(pb[i]); }
     calcUso(); calcComp();
     if($('save-sim')){$('save-sim').addEventListener('click',saveCurrent);loadSaved();}
